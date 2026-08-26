@@ -1,0 +1,14 @@
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 26/08/2026
+# Objetivo: Excluir artefatos locais do contexto de build Docker
+
+.git
+.venv
+.pytest_cache
+__pycache__
+*.py[cod]
+dist
+build
+*.egg-info
+.localappdata-test

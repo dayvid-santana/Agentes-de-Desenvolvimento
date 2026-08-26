@@ -1,0 +1,22 @@
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 26/08/2026
+# Objetivo: Executar API e testes em ambiente Docker de desenvolvimento
+
+services:
+  api:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:8766:8765"
+    volumes:
+      - .:/app
+    command: uvicorn dev_agent.api.app:app --host 0.0.0.0 --port 8765 --reload
+
+  tests:
+    build:
+      context: .
+    volumes:
+      - .:/app
+    command: pytest
+    profiles: ["test"]
