@@ -4,12 +4,17 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Expor os agentes disponíveis pela API local.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Integrar uma assistente externa ao backend local dos agents.
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from dev_agent.api.assistant_backend import router as assistant_backend_router
 from dev_agent.config.loader import discover_project
 from dev_agent.errors import DevAgentError
 from dev_agent.memory.session_store import SessionStore
@@ -17,6 +22,7 @@ from dev_agent.core.orchestrator import Orchestrator
 from dev_agent.providers.codex.provider import CodexProvider
 
 app = FastAPI(title="DevAgent", version="0.1.0")
+app.include_router(assistant_backend_router)
 
 class ProjectRequest(BaseModel): cwd: Path
 class ObjectiveRequest(ProjectRequest): objective: str

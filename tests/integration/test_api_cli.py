@@ -6,6 +6,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Cobrir o argumento posicional do comando de depuração.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Cobrir o backend de integração para assistentes externas.
 from pathlib import Path
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
@@ -29,6 +33,28 @@ def test_agents_endpoint_lists_registered_agents():
     agents = response.json()
     assert {"context", "implementation", "architecture_guard"} <= {item["name"] for item in agents}
     assert next(item for item in agents if item["name"] == "context")["command"] == "dev-agent context"
+
+
+def test_assistant_backend_lists_direct_agents():
+    client = TestClient(app)
+
+    response = client.get("/assistant/agents")
+
+    assert response.status_code == 200
+    assert {"ask", "security", "task"} <= {item["name"] for item in response.json()}
+
+
+def test_assistant_backend_requires_confirmation_for_tasks(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    client = TestClient(app)
+
+    response = client.post(
+        "/assistant/invocations",
+        json={"cwd": str(tmp_path), "agent": "task", "objective": "Alterar um arquivo"},
+    )
+
+    assert response.status_code == 400
+    assert "confirmed_write=true" in response.json()["detail"]
 
 def test_project_activate_via_api(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
