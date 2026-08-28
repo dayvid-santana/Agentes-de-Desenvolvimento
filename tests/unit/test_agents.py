@@ -3,6 +3,11 @@
 # Data: 28/08/2026
 # Objetivo: Cobrir os agentes especialistas adicionados ao DevAgent.
 # DevAgent-Task: debug-evidence-20260828
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Cobrir a seleção de código e dependências de contexto.
+# DevAgent-Task: context-code-selection-20260828
 from pathlib import Path
 from dev_agent.agents.debug_agent import DebugAgent
 from dev_agent.agents.context_agent import ContextAgent
@@ -45,6 +50,26 @@ def test_context_agent_includes_changed_source_before_fallback_docs(tmp_path: Pa
     (tmp_path / "src").mkdir(); (tmp_path / "src" / "service.py").write_text("def run(): pass", encoding="utf-8")
     packet = ContextAgent(tmp_path, load_config(tmp_path)).build("investigar falha", git_diff="+++ b/src/service.py\n")
     assert packet.relevant_files.index("src/service.py") < packet.relevant_files.index("docs/guide.md")
+
+
+def test_context_agent_respects_include_and_follows_local_dependencies(tmp_path: Path):
+    config = render_default_config("Demo").replace(
+        "include: [src/**, tests/**, docs/**, AGENTS.md, README.md]",
+        "include: [src/**, tests/**]",
+    )
+    (tmp_path / "dev-agent.yaml").write_text(config, encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "private").mkdir()
+    (tmp_path / "src" / "workflow.py").write_text("from .validator import validate", encoding="utf-8")
+    (tmp_path / "src" / "validator.py").write_text("def validate(): pass", encoding="utf-8")
+    (tmp_path / "tests" / "test_workflow.py").write_text("def test_workflow(): pass", encoding="utf-8")
+    (tmp_path / "private" / "workflow_notes.py").write_text("workflow", encoding="utf-8")
+
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Corrigir src/workflow.py")
+
+    assert {"src/workflow.py", "src/validator.py", "tests/test_workflow.py"} <= set(packet.relevant_files)
+    assert "private/workflow_notes.py" not in packet.relevant_files
 
 
 def test_debug_agent_uses_test_evidence_and_read_only_provider(tmp_path: Path):

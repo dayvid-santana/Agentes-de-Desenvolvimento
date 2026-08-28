@@ -4,6 +4,12 @@ Autor: Dayvid Santana
 Data: 28/08/2026
 Objetivo: Documentar os agentes especialistas disponíveis.
 -->
+<!--
+Autor: Dayvid Santana
+Data: 28/08/2026
+Objetivo: Documentar a seleção de contexto orientada a código.
+DevAgent-Task: context-code-selection-20260828
+-->
 
 # DevAgent
 
@@ -86,6 +92,8 @@ security:
 ```
 
 O arquivo completo criado por `init` inclui prioridades de documentação, limites de contexto, exclusões, Git, cabeçalhos e segurança. YAML inválido resulta em erro claro na CLI.
+
+O `ContextAgent` sempre inclui instruções de `AGENTS.md`, aplica `context.include` e `context.exclude` à busca, aceita caminhos relativos citados no pedido e prioriza arquivos alterados, código e testes. Para código Python, ele também segue imports locais e testes correspondentes até `context.dependency_depth`, sempre respeitando os limites de arquivos e caracteres.
 
 ## Comportamento de segurança
 
