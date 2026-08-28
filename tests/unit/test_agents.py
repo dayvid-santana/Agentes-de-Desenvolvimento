@@ -12,27 +12,29 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Cobrir documentação de código, testes e reprodução de bugs.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Importar e cobrir cada agente em módulo próprio.
 from pathlib import Path
-from dev_agent.agents.debug_agent import DebugAgent
+from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
 from dev_agent.agents.code_documentation_agent import CodeDocumentationAgent
 from dev_agent.agents.context_agent import ContextAgent
+from dev_agent.agents.database_agent import DatabaseAgent
+from dev_agent.agents.debug_agent import DebugAgent
+from dev_agent.agents.dependency_agent import DependencyAgent
+from dev_agent.agents.documentation_writer_agent import DocumentationWriterAgent
+from dev_agent.agents.frontend_agent import FrontendAgent
+from dev_agent.agents.observability_agent import ObservabilityAgent
+from dev_agent.agents.performance_agent import PerformanceAgent
+from dev_agent.agents.quality_agent import QualityAgent
+from dev_agent.agents.refactor_agent import RefactorAgent
+from dev_agent.agents.release_agent import ReleaseAgent
+from dev_agent.agents.requirements_agent import RequirementsAgent
 from dev_agent.agents.review_agent import ReviewAgent
+from dev_agent.agents.security_agent import SecurityAgent
 from dev_agent.agents.test_author_agent import TestAuthorAgent
-from dev_agent.agents.specialist_agents import (
-    ApiContractAgent,
-    DatabaseAgent,
-    DependencyAgent,
-    DocumentationWriterAgent,
-    FrontendAgent,
-    ObservabilityAgent,
-    PerformanceAgent,
-    QualityAgent,
-    RefactorAgent,
-    ReleaseAgent,
-    RequirementsAgent,
-    SecurityAgent,
-)
 from dev_agent.config.loader import load_config, render_default_config
 from dev_agent.core.models import ContextPacket
 from dev_agent.tools import tests as test_tools
