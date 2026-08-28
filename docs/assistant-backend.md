@@ -4,6 +4,12 @@ Autor: Dayvid Santana
 Data: 28/08/2026
 Objetivo: Documentar o backend local para integração de assistentes externas.
 -->
+<!--
+DevAgent
+Autor: Dayvid Santana
+Data: 28/08/2026
+Objetivo: Documentar planejamento, prontidão e jobs isolados dos agents.
+-->
 
 # Backend para assistente externa
 
@@ -33,15 +39,43 @@ Invoke-RestMethod http://127.0.0.1:8765/assistant/invocations -Method Post -Cont
 
 Os agents de análise aceitos incluem `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `performance`, `frontend`, `observability`, `release`, `refactor`, `documentation`, `bug_reproduction`, `context`, `ask`, `review`, `test`, `debug` e `git`.
 
-Para alterações, use `agent: "task"` somente depois de o usuário confirmar expressamente a operação. O campo `confirmed_write` é obrigatório nesse caso:
+## Tarefas que alteram código
+
+Não envie `agent: "task"` para `/assistant/invocations`: esse atalho foi bloqueado. Primeiro, crie um plano sem alterar arquivos:
 
 ```json
+POST /assistant/task-plans
+
 {
   "cwd": "C:\\Projetos\\Faturas",
-  "agent": "task",
-  "objective": "Adicionar validação de CPF",
+  "objective": "Adicionar validação de CPF"
+}
+```
+
+O plano informa arquivos relevantes, a branch-base, riscos e se é necessária uma decisão arquitetural. Se for necessária, registre a decisão humana antes da execução:
+
+```json
+POST /assistant/task-plans/{id}/architecture-approval
+
+{
+  "decision": "Usar validação no serviço de domínio e manter o contrato atual da API."
+}
+```
+
+Depois da confirmação explícita do usuário, inicie o plano:
+
+```json
+POST /assistant/task-plans/{id}/start
+
+{
   "confirmed_write": true
 }
 ```
 
-Os subagents internos de escrita não são invocados isoladamente; `task` preserva a serialização, os cabeçalhos e os testes controlados pelo `Orchestrator`.
+O resultado inicial é um job com estado `queued`. Consulte `GET /assistant/jobs/{id}` para obter `running`, `completed`, `failed` ou `cancelled`, o diff, os resumos dos agents e o caminho do worktree. Para solicitar interrupção, use `POST /assistant/jobs/{id}/cancel`.
+
+Cada job cria uma branch `dev-agent/{id}` em um worktree separado. O checkout principal não é alterado. O projeto precisa estar limpo antes da execução; assim, mudanças locais preexistentes não são perdidas nem misturadas à tarefa. Após revisar ou integrar as mudanças, remova o worktree apenas com confirmação explícita via `POST /assistant/jobs/{id}/cleanup` e `{ "confirmed_cleanup": true }`; essa operação descarta alterações não commitadas naquele worktree.
+
+## Prontidão do Codex
+
+Use `GET /health/codex` para verificar a CLI, a autenticação e uma chamada mínima em modo somente leitura. O resultado é armazenado por até 60 segundos e não expõe credenciais nem a saída bruta do Codex. No terminal, `dev-agent doctor` apresenta o mesmo diagnóstico.

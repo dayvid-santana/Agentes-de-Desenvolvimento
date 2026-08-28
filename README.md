@@ -15,6 +15,18 @@ Autor: Dayvid Santana
 Data: 28/08/2026
 Objetivo: Documentar os agentes de documentação, testes e reprodução.
 -->
+<!--
+DevAgent
+Autor: Dayvid Santana
+Data: 28/08/2026
+Objetivo: Documentar a execução confiável e isolada de tarefas dos agents.
+-->
+<!--
+DevAgent
+Autor: Dayvid Santana
+Data: 28/08/2026
+Objetivo: Documentar a máquina de estados, os checkpoints e a retomada de jobs.
+-->
 
 # DevAgent
 
@@ -73,11 +85,9 @@ dev-agent doctor
 dev-agent context
 dev-agent ask "Explique o fluxo de cadastro de usuários"
 dev-agent task "Adicione normalização de CPF"
-dev-agent test
-dev-agent review
-git add .
-dev-agent review --staged
-dev-agent commit
+# revise o plano exibido e confirme a escrita isolada
+dev-agent run <id-do-plano> --confirm
+dev-agent job <id-do-plano>
 ```
 
 `init` nunca sobrescreve uma configuração existente. Todos os demais comandos procuram `dev-agent.yaml` subindo a partir do diretório atual. A API é iniciada automaticamente quando necessário e fica restrita a `127.0.0.1:8765`; `start`, `stop` e `status` também podem controlá-la explicitamente.
@@ -111,6 +121,12 @@ Uma tarefa que indique mudança estrutural (framework, banco, autenticação, mi
 Além de contexto, implementação, testes, revisão, documentação, depuração e Git, `dev-agent task` coordena agentes de requisitos, segurança, banco de dados, contratos de API, qualidade, dependências, desempenho, frontend, observabilidade, release e refatoração. Eles recebem apenas o contexto e o diff selecionados, fazem análises somente de leitura e retornam riscos ou próximos passos. O `DocumentationWriterAgent` pode atualizar `README.md`, `docs/` ou documentação de API quando a implementação tornar isso necessário; ele não altera código nem dependências.
 
 O fluxo também inclui `CodeDocumentationAgent`, que adiciona documentação útil ao código e preserva cabeçalhos existentes; `TestAuthorAgent`, que cria testes de regressão relacionados à alteração; e `BugReproductionAgent`, que transforma relatos de falha em passos verificáveis sem editar arquivos.
+
+## Execução confiável
+
+`dev-agent task` cria um plano sem escrever no projeto. Depois da revisão e confirmação explícita, `dev-agent run <id> --confirm` executa a tarefa em uma branch e worktree Git isolados, avançando por uma máquina de estados explícita (descoberta, planejamento, execução, testes, revisão) que grava um checkpoint ao final de cada fase. Use `dev-agent job <id>` para acompanhar fase atual, resultados, diff e caminho do worktree; `dev-agent cancel <id>` solicita a interrupção de uma tarefa em andamento. Se a API local for reiniciada ou a tarefa falhar após pelo menos um checkpoint, o job fica `blocked`/resumível no mesmo worktree; `dev-agent resume <id>` retoma a partir da última fase concluída, sem repetir chamadas ao provider já feitas com sucesso. Depois de integrar ou descartar as alterações, `dev-agent cleanup <id> --confirm` remove o worktree correspondente.
+
+`dev-agent doctor` também verifica a prontidão autenticada do Codex. Pela API local, `GET /health/codex` expõe o mesmo estado sem retornar credenciais ou a saída bruta do provider. O contrato completo para a assistente de outro repositório está em [docs/assistant-backend.md](docs/assistant-backend.md).
 
 ## Desenvolvimento
 

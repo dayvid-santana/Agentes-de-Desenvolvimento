@@ -5,6 +5,10 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Disponibilizar agents por um contrato estável para assistentes externas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Bloquear escrita direta fora do fluxo aprovado e isolado.
 
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
@@ -64,9 +68,9 @@ class AssistantGateway:
             ),
             AgentDescriptor(
                 name="task",
-                description="Executa o fluxo controlado de escrita após confirmação explícita.",
+                description="Cria um plano aprovável para execução isolada em worktree.",
                 mode="write",
-                command='POST /assistant/invocations {"agent": "task", "confirmed_write": true}',
+                command='POST /assistant/task-plans',
             ),
         ]
         return descriptors
@@ -91,11 +95,9 @@ class AssistantGateway:
             raise DevAgentError(f"Agent indisponível para integração: {agent}.")
 
         if agent == "task":
-            if not confirmed_write:
-                raise UnsafeCommandError(
-                    "A execução de 'task' pode alterar arquivos. Envie confirmed_write=true após confirmação explícita do usuário."
-                )
-            return self.orchestrator.task(objective), []
+            raise UnsafeCommandError(
+                "Use /assistant/task-plans para criar um plano e /assistant/task-plans/{id}/start com confirmed_write=true para executar em worktree isolado."
+            )
 
         if agent == "git":
             return [], self.orchestrator.commit_plan()

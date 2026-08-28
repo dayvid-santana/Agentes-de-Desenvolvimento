@@ -1,0 +1,296 @@
+# dev-agent
+# Autor: Dayvid Santana
+# Criado em: 28/08/2026
+# Editado em: 28/08/2026
+# Objetivo: Catálogo único dos Agents do DevAgent, fonte de dados para AgentRegistry.
+#
+# Este arquivo é a fonte única de verdade sobre os Agents disponíveis.
+# `Orchestrator.available_agents()`, `/agents`, `/assistant/agents` e a CLI
+# `dev-agent agents *` leem este catálogo por meio de `AgentRegistry`; não
+# duplique esta lista manualmente em outro lugar.
+agents:
+  - id: context
+    name: context
+    module: dev_agent.agents.context_agent.agent
+    class_name: ContextAgent
+    purpose: Seleciona instruções, código, testes e diff relevantes.
+    mode: read
+    kind: subagent
+    tools: [filesystem, git, search]
+    invocation: dev-agent context
+    legacy: false
+    status: active
+
+  - id: requirements
+    name: requirements
+    module: dev_agent.agents.requirements_agent.agent
+    class_name: RequirementsAgent
+    purpose: Define critérios de aceite, escopo e ambiguidades.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    dependencies: [context]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: implementation
+    name: implementation
+    module: dev_agent.agents.implementation_agent.agent
+    class_name: ImplementationAgent
+    purpose: Implementa a tarefa aprovada.
+    mode: write
+    kind: subagent
+    tools: [provider, filesystem]
+    dependencies: [context, requirements]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: documentation_writer
+    name: documentation_writer
+    module: dev_agent.agents.documentation_writer_agent.agent
+    class_name: DocumentationWriterAgent
+    purpose: Atualiza documentação quando a alteração exigir.
+    mode: write
+    kind: subagent
+    tools: [provider, filesystem]
+    dependencies: [implementation]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: code_documentation
+    name: code_documentation
+    module: dev_agent.agents.code_documentation_agent.agent
+    class_name: CodeDocumentationAgent
+    purpose: Documenta código alterado sem editar cabeçalhos existentes.
+    mode: write
+    kind: subagent
+    tools: [provider, filesystem]
+    dependencies: [implementation]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: test_author
+    name: test_author
+    module: dev_agent.agents.test_author_agent.agent
+    class_name: TestAuthorAgent
+    purpose: Cria testes de regressão para alterações de código.
+    mode: write
+    kind: subagent
+    tools: [provider, filesystem]
+    dependencies: [implementation]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: bug_reproduction
+    name: bug_reproduction
+    module: dev_agent.agents.bug_reproduction_agent.agent
+    class_name: BugReproductionAgent
+    purpose: Produz passos verificáveis para reproduzir falhas.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<relato de falha>"'
+    legacy: false
+    status: active
+
+  - id: test
+    name: test
+    module: dev_agent.agents.test_agent.agent
+    class_name: TestAgent
+    purpose: Executa a suíte de testes configurada.
+    mode: execute
+    kind: subagent
+    tools: [tests, terminal]
+    invocation: dev-agent test
+    legacy: false
+    status: active
+
+  - id: review
+    name: review
+    module: dev_agent.agents.review_agent.agent
+    class_name: ReviewAgent
+    purpose: Revisa o diff em busca de regressões e riscos.
+    mode: read
+    kind: subagent
+    tools: [provider, git]
+    invocation: dev-agent review [--staged]
+    legacy: false
+    status: active
+
+  - id: documentation
+    name: documentation
+    module: dev_agent.agents.documentation_agent.agent
+    class_name: DocumentationAgent
+    purpose: Avalia impactos de documentação.
+    mode: read
+    kind: subagent
+    tools: []
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: debug
+    name: debug
+    module: dev_agent.agents.debug_agent.agent
+    class_name: DebugAgent
+    purpose: Diagnostica falhas com testes, diff e contexto.
+    mode: read
+    kind: subagent
+    tools: [provider, tests]
+    dependencies: [context]
+    invocation: 'dev-agent debug "<problema>"'
+    legacy: false
+    status: active
+
+  - id: security
+    name: security
+    module: dev_agent.agents.security_agent.agent
+    class_name: SecurityAgent
+    purpose: Analisa segurança, validação e exposição de dados.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: database
+    name: database
+    module: dev_agent.agents.database_agent.agent
+    class_name: DatabaseAgent
+    purpose: Analisa persistência, migrations e integridade de dados.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: api_contract
+    name: api_contract
+    module: dev_agent.agents.api_contract_agent.agent
+    class_name: ApiContractAgent
+    purpose: Protege compatibilidade de contratos de API.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: quality
+    name: quality
+    module: dev_agent.agents.quality_agent.agent
+    class_name: QualityAgent
+    purpose: Identifica lacunas de testes e casos de borda.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: dependency
+    name: dependency
+    module: dev_agent.agents.dependency_agent.agent
+    class_name: DependencyAgent
+    purpose: Avalia dependências visíveis no contexto.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: performance
+    name: performance
+    module: dev_agent.agents.performance_agent.agent
+    class_name: PerformanceAgent
+    purpose: Aponta possíveis gargalos e formas de medi-los.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: frontend
+    name: frontend
+    module: dev_agent.agents.frontend_agent.agent
+    class_name: FrontendAgent
+    purpose: Analisa interface, acessibilidade e responsividade.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: observability
+    name: observability
+    module: dev_agent.agents.observability_agent.agent
+    class_name: ObservabilityAgent
+    purpose: Sugere logs, métricas e rastreamento seguros.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: release
+    name: release
+    module: dev_agent.agents.release_agent.agent
+    class_name: ReleaseAgent
+    purpose: Verifica itens necessários para publicação.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: refactor
+    name: refactor
+    module: dev_agent.agents.refactor_agent.agent
+    class_name: RefactorAgent
+    purpose: Separa refatorações necessárias das opcionais.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: git
+    name: git
+    module: dev_agent.agents.git_agent.agent
+    class_name: GitAgent
+    purpose: Sugere um plano de commit sem criar commits.
+    mode: read
+    kind: service
+    tools: [git]
+    input_model: "-"
+    output_model: list[CommitSuggestion]
+    invocation: dev-agent commit
+    legacy: false
+    status: active
+
+  - id: architecture_guard
+    name: architecture_guard
+    module: dev_agent.security.architecture_guard
+    class_name: ArchitectureGuard
+    purpose: Solicita decisão para mudanças estruturais.
+    mode: guard
+    kind: policy
+    tools: []
+    input_model: str
+    output_model: ArchitectureAssessment
+    invocation: 'dev-agent task "<objetivo estrutural>"'
+    legacy: false
+    status: active

@@ -3,20 +3,29 @@ from __future__ import annotations
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 28/08/2026
+# Objetivo: Expor o catálogo declarativo de Agents (AgentRegistry) pela API local.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
 # Objetivo: Expor os agentes disponíveis pela API local.
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Integrar uma assistente externa ao backend local dos agents.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Expor a prontidão autenticada do Codex pela API local.
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from dev_agent.agents.registry import AgentRegistry
 from dev_agent.api.assistant_backend import router as assistant_backend_router
 from dev_agent.config.loader import discover_project
-from dev_agent.errors import DevAgentError
+from dev_agent.errors import DevAgentError, UnsafeCommandError
 from dev_agent.memory.session_store import SessionStore
 from dev_agent.core.orchestrator import Orchestrator
 from dev_agent.providers.codex.provider import CodexProvider
@@ -38,8 +47,28 @@ async def known_error(_, exc: DevAgentError):
 @app.get("/health")
 def health(): return {"status": "ok", "host": "127.0.0.1"}
 
+@app.get("/health/codex")
+def codex_health(force: bool = False):
+    return CodexProvider().readiness(Path.cwd(), force=force).model_dump(mode="json")
+
 @app.get("/agents")
 def agents(): return [agent.model_dump() for agent in Orchestrator.available_agents()]
+
+@app.get("/agents/catalog")
+def agents_catalog(): return [manifest.model_dump(mode="json") for manifest in AgentRegistry().list()]
+
+@app.get("/agents/catalog/{agent_id}")
+def agents_catalog_show(agent_id: str):
+    try:
+        return AgentRegistry().get(agent_id).model_dump(mode="json")
+    except KeyError as exc:
+        raise DevAgentError(str(exc)) from exc
+
+@app.get("/agents/graph")
+def agents_graph(): return AgentRegistry().graph()
+
+@app.get("/agents/doctor")
+def agents_doctor(): return AgentRegistry().doctor()
 
 @app.get("/session")
 def session():
@@ -59,8 +88,11 @@ def context(request: ObjectiveRequest):
 
 @app.post("/agent/ask")
 def ask(request: ObjectiveRequest): return orchestrator(request.cwd).ask(request.objective).model_dump(mode="json")
-@app.post("/agent/task")
-def task(request: ObjectiveRequest): return [item.model_dump(mode="json") for item in orchestrator(request.cwd).task(request.objective)]
+@app.post("/agent/task", deprecated=True)
+def task(request: ObjectiveRequest):
+    raise UnsafeCommandError(
+        "A execução direta foi desativada. Crie um plano em /assistant/task-plans e inicie-o com confirmação explícita."
+    )
 @app.post("/agent/review")
 def review(request: ReviewRequest): return orchestrator(request.cwd).review(request.staged).model_dump(mode="json")
 @app.post("/agent/test")

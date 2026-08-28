@@ -34,4 +34,4 @@ Implementações normais são autônomas. Decisões arquiteturais relevantes exi
 
 ## Extensibilidade
 
-Para adicionar agent: implemente `SubAgent`, aceite `ContextPacket`, retorne `SubAgentResult` e registre a etapa no orquestrador. Para adicionar tool: crie input/saída estruturados, validação, logs e uma fake testável. Para provider: implemente `LLMProvider` em novo pacote, mantendo autenticação e argumentos específicos encapsulados.
+Para adicionar agent: implemente `SubAgent`, aceite `ContextPacket`, retorne `SubAgentResult`, registre a etapa no orquestrador e declare-o em `agents/catalog.yaml` (fonte única lida por `AgentRegistry`; não duplique a lista em outro lugar). Um agent legado que ainda retorna `str` pode ser envolvido em `LegacyAgentAdapter` em vez de reescrito. Para adicionar tool: crie input/saída estruturados, validação, logs e uma fake testável. Para provider: implemente `LLMProvider` em novo pacote, mantendo autenticação e argumentos específicos encapsulados. Veja `docs/agent-inventory.md` para o inventário completo.

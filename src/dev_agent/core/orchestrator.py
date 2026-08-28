@@ -1,6 +1,10 @@
 # dev-agent
 # Autor: Dayvid Santana
 # Data: 28/08/2026
+# Objetivo: Unificar a listagem de Agents na fonte única AgentRegistry.
+# dev-agent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
 # Objetivo: Conectar depuração a evidências do projeto.
 # DevAgent-Task: debug-evidence-20260828
 """Coordena subagents com pacotes isolados e serialização de escrita."""
@@ -26,8 +30,14 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Importar cada agente especialista de seu módulo próprio.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Executar mudanças estruturais somente após aprovação registrada.
 import threading
+from collections.abc import Callable
 from pathlib import Path
+from uuid import uuid4
 
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
@@ -45,6 +55,7 @@ from dev_agent.agents.observability_agent import ObservabilityAgent
 from dev_agent.agents.performance_agent import PerformanceAgent
 from dev_agent.agents.quality_agent import QualityAgent
 from dev_agent.agents.refactor_agent import RefactorAgent
+from dev_agent.agents.registry import AgentRegistry
 from dev_agent.agents.release_agent import ReleaseAgent
 from dev_agent.agents.requirements_agent import RequirementsAgent
 from dev_agent.agents.review_agent import ReviewAgent
@@ -52,7 +63,8 @@ from dev_agent.agents.security_agent import SecurityAgent
 from dev_agent.agents.test_agent import TestAgent
 from dev_agent.agents.test_author_agent import TestAuthorAgent
 from dev_agent.config.loader import load_config
-from dev_agent.core.models import AgentDescriptor, ContextPacket, SubAgentResult
+from dev_agent.core.models import AgentDescriptor, Checkpoint, ContextPacket, SubAgentResult, TaskStatus
+from dev_agent.core.state_machine import TaskStateMachine
 from dev_agent.headers.service import HeaderService
 from dev_agent.memory.session_store import ProjectSession, SessionStore
 from dev_agent.providers.base import LLMProvider
@@ -72,31 +84,8 @@ class Orchestrator:
 
     @staticmethod
     def available_agents() -> list[AgentDescriptor]:
-        return [
-            AgentDescriptor(name="context", description="Seleciona instruções, código, testes e diff relevantes.", mode="read", command="dev-agent context"),
-            AgentDescriptor(name="requirements", description="Define critérios de aceite, escopo e ambiguidades.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="implementation", description="Implementa a tarefa aprovada.", mode="write", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="documentation_writer", description="Atualiza documentação quando a alteração exigir.", mode="write", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="code_documentation", description="Documenta código alterado sem editar cabeçalhos existentes.", mode="write", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="test_author", description="Cria testes de regressão para alterações de código.", mode="write", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="bug_reproduction", description="Produz passos verificáveis para reproduzir falhas.", mode="read", command='dev-agent task "<relato de falha>"'),
-            AgentDescriptor(name="test", description="Executa a suíte de testes configurada.", mode="execute", command="dev-agent test"),
-            AgentDescriptor(name="review", description="Revisa o diff em busca de regressões e riscos.", mode="read", command="dev-agent review [--staged]"),
-            AgentDescriptor(name="documentation", description="Avalia impactos de documentação.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="debug", description="Diagnostica falhas com testes, diff e contexto.", mode="read", command='dev-agent debug "<problema>"'),
-            AgentDescriptor(name="security", description="Analisa segurança, validação e exposição de dados.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="database", description="Analisa persistência, migrations e integridade de dados.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="api_contract", description="Protege compatibilidade de contratos de API.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="quality", description="Identifica lacunas de testes e casos de borda.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="dependency", description="Avalia dependências visíveis no contexto.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="performance", description="Aponta possíveis gargalos e formas de medi-los.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="frontend", description="Analisa interface, acessibilidade e responsividade.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="observability", description="Sugere logs, métricas e rastreamento seguros.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="release", description="Verifica itens necessários para publicação.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="refactor", description="Separa refatorações necessárias das opcionais.", mode="read", command='dev-agent task "<objetivo>"'),
-            AgentDescriptor(name="git", description="Sugere um plano de commit sem criar commits.", mode="read", command="dev-agent commit"),
-            AgentDescriptor(name="architecture_guard", description="Solicita decisão para mudanças estruturais.", mode="guard", command='dev-agent task "<objetivo estrutural>"'),
-        ]
+        """Fonte única: lê ``agents/catalog.yaml`` via ``AgentRegistry``."""
+        return [manifest.descriptor() for manifest in AgentRegistry().list()]
 
     def context(self, objective: str = "Compreender o projeto") -> tuple[ContextPacket, SubAgentResult]:
         session = self.store.load()
@@ -114,59 +103,117 @@ class Orchestrator:
         self._remember(objective, packet, result)
         return result
 
-    def task(self, objective: str) -> list[SubAgentResult]:
+    def task(
+        self,
+        objective: str,
+        *,
+        architecture_approved: bool = False,
+        job_id: str | None = None,
+        on_checkpoint: Callable[[Checkpoint], None] | None = None,
+        resume_from: Checkpoint | None = None,
+    ) -> list[SubAgentResult]:
+        """Executa o pipeline de fases da tarefa, com checkpoints e retomada opcional.
+
+        Sem ``resume_from``, o pipeline roda do início (DISCOVERING…REVIEWING).
+        Com ``resume_from`` (um :class:`Checkpoint` de uma execução interrompida),
+        pula as fases já concluídas, reconstrói apenas o contexto necessário e
+        continua a partir da fase seguinte — sem repetir chamadas ao provider já
+        feitas com sucesso.
+        """
         event("orchestrator.task.started", project=str(self.root))
         assessment = ArchitectureGuard().assess(objective)
-        if assessment.required and self.config.security.require_architecture_approval:
+        if assessment.required and self.config.security.require_architecture_approval and not architecture_approved:
             return [SubAgentResult(agent="architecture_guard", summary=f"DECISÃO ARQUITETURAL NECESSÁRIA\n\nContexto: {assessment.reason}\n\nProblema: a tarefa indica uma mudança estrutural.\n\nOpção A: aprovar a abordagem proposta.\nVantagens: avanço direto.\nDesvantagens: impacto estrutural ainda precisa de desenho.\n\nOpção B: delimitar a mudança antes de implementar.\nVantagens: reduz risco.\nDesvantagens: exige decisão do usuário.\n\nMinha recomendação: delimitar a mudança.\n\nImpacto estimado: alto.", architecture_decision_required=True)]
+
+        machine = TaskStateMachine(job_id or uuid4().hex)
+        results: list[SubAgentResult] = list(resume_from.results) if resume_from else []
+        changed: list[str] = list(resume_from.changed_files) if resume_from else []
+        resume_phase = resume_from.phase if resume_from else None
+
+        def checkpoint(step_index: int) -> None:
+            point = machine.checkpoint(step_index=step_index, completed_agents=[item.agent for item in results], results=results, changed_files=changed)
+            if on_checkpoint:
+                on_checkpoint(point)
+
         with self._write_lock:
-            packet, context_result = self.context(objective)
-            requirements_result = RequirementsAgent(self.provider).run(packet)
-            before = self._file_snapshot()
-            implementation = ImplementationAgent(self.provider).run(packet)
-            changed = self._changed_files(before)
-            self._apply_headers(changed, objective)
-            refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-            before_code_documentation = self._file_snapshot()
-            code_documentation = CodeDocumentationAgent(self.provider).run(refreshed)
-            code_documentation_changed = self._changed_files(before_code_documentation)
-            self._apply_headers(code_documentation_changed, objective)
-            code_documentation.files_changed = code_documentation_changed
-            changed = list(dict.fromkeys([*changed, *code_documentation_changed]))
-            refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-            before_tests = self._file_snapshot()
-            test_author = TestAuthorAgent(self.provider).run(refreshed)
-            test_author_changed = self._changed_files(before_tests)
-            self._apply_headers(test_author_changed, objective)
-            test_author.files_changed = test_author_changed
-            changed = list(dict.fromkeys([*changed, *test_author_changed]))
-            refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-            before_documentation = self._file_snapshot()
-            documentation_writer = DocumentationWriterAgent(self.provider).run(refreshed)
-            documentation_changed = self._changed_files(before_documentation)
-            self._apply_headers(documentation_changed, objective)
-            documentation_writer.files_changed = documentation_changed
-            changed = list(dict.fromkeys([*changed, *documentation_changed]))
-            refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-            test_result = TestAgent(TestTool(TerminalTool(self.root), self.config.testing.command)).run(refreshed)
-            bug_reproduction = BugReproductionAgent(self.provider).run(refreshed)
-            review_result = ReviewAgent(self.provider).run(refreshed)
-            docs_result = DocumentationAgent().run(refreshed)
-            specialist_results = [
-                SecurityAgent(self.provider).run(refreshed),
-                DatabaseAgent(self.provider).run(refreshed),
-                ApiContractAgent(self.provider).run(refreshed),
-                QualityAgent(self.provider).run(refreshed),
-                DependencyAgent(self.provider).run(refreshed),
-                PerformanceAgent(self.provider).run(refreshed),
-                FrontendAgent(self.provider).run(refreshed),
-                ObservabilityAgent(self.provider).run(refreshed),
-                ReleaseAgent(self.provider).run(refreshed),
-                RefactorAgent(self.provider).run(refreshed),
-            ]
-            results = [context_result, requirements_result, implementation, code_documentation, test_author, documentation_writer, test_result, bug_reproduction, review_result, docs_result, *specialist_results]
+            if resume_from is None:
+                machine.transition(TaskStatus.DISCOVERING)
+                packet, context_result = self.context(objective)
+                results.append(context_result)
+                machine.transition(TaskStatus.PLANNING)
+                results.append(RequirementsAgent(self.provider).run(packet))
+                checkpoint(1)
+            else:
+                machine.status = TaskStatus.BLOCKED
+                packet, _ = self.context(objective)
+
+            if resume_phase in (None, TaskStatus.PLANNING):
+                machine.transition(TaskStatus.EXECUTING)
+                before = self._file_snapshot()
+                implementation = ImplementationAgent(self.provider).run(packet)
+                implementation_changed = self._changed_files(before)
+                self._apply_headers(implementation_changed, objective)
+                changed = list(dict.fromkeys([*changed, *implementation_changed]))
+                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                before_code_documentation = self._file_snapshot()
+                code_documentation = CodeDocumentationAgent(self.provider).run(refreshed)
+                code_documentation_changed = self._changed_files(before_code_documentation)
+                self._apply_headers(code_documentation_changed, objective)
+                code_documentation.files_changed = code_documentation_changed
+                changed = list(dict.fromkeys([*changed, *code_documentation_changed]))
+                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                before_tests = self._file_snapshot()
+                test_author = TestAuthorAgent(self.provider).run(refreshed)
+                test_author_changed = self._changed_files(before_tests)
+                self._apply_headers(test_author_changed, objective)
+                test_author.files_changed = test_author_changed
+                changed = list(dict.fromkeys([*changed, *test_author_changed]))
+                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                before_documentation = self._file_snapshot()
+                documentation_writer = DocumentationWriterAgent(self.provider).run(refreshed)
+                documentation_changed = self._changed_files(before_documentation)
+                self._apply_headers(documentation_changed, objective)
+                documentation_writer.files_changed = documentation_changed
+                changed = list(dict.fromkeys([*changed, *documentation_changed]))
+
+                results += [implementation, code_documentation, test_author, documentation_writer]
+                checkpoint(2)
+            else:
+                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+            if resume_phase in (None, TaskStatus.PLANNING, TaskStatus.EXECUTING):
+                machine.transition(TaskStatus.TESTING)
+                test_result = TestAgent(TestTool(self._terminal(), self.config.testing.command)).run(refreshed)
+                bug_reproduction = BugReproductionAgent(self.provider).run(refreshed)
+                results += [test_result, bug_reproduction]
+                checkpoint(3)
+
+            if resume_phase != TaskStatus.REVIEWING:
+                machine.transition(TaskStatus.REVIEWING)
+                review_result = ReviewAgent(self.provider).run(refreshed)
+                docs_result = DocumentationAgent().run(refreshed)
+                specialist_results = [
+                    SecurityAgent(self.provider).run(refreshed),
+                    DatabaseAgent(self.provider).run(refreshed),
+                    ApiContractAgent(self.provider).run(refreshed),
+                    QualityAgent(self.provider).run(refreshed),
+                    DependencyAgent(self.provider).run(refreshed),
+                    PerformanceAgent(self.provider).run(refreshed),
+                    FrontendAgent(self.provider).run(refreshed),
+                    ObservabilityAgent(self.provider).run(refreshed),
+                    ReleaseAgent(self.provider).run(refreshed),
+                    RefactorAgent(self.provider).run(refreshed),
+                ]
+                results += [review_result, docs_result, *specialist_results]
+                checkpoint(4)
+
+            failed_tests = any(item.agent == "test" and item.warnings for item in results)
+            machine.transition(TaskStatus.PARTIALLY_COMPLETED if failed_tests else TaskStatus.COMPLETED)
             for result in results: self._remember(objective, refreshed, result)
-            event("orchestrator.task.finished", project=str(self.root), agents=[item.agent for item in results], changed_files=changed)
+            event("orchestrator.task.finished", project=str(self.root), agents=[item.agent for item in results], changed_files=changed, phase=machine.status.value)
             return results
 
     def review(self, staged: bool = False) -> SubAgentResult:
@@ -176,16 +223,19 @@ class Orchestrator:
 
     def test(self) -> SubAgentResult:
         packet, _ = self.context("Executar testes do projeto")
-        return TestAgent(TestTool(TerminalTool(self.root), self.config.testing.command)).run(packet)
+        return TestAgent(TestTool(self._terminal(), self.config.testing.command)).run(packet)
 
     def debug(self, objective: str) -> SubAgentResult:
         packet, _ = self.context(objective)
-        tests = TestTool(TerminalTool(self.root), self.config.testing.command)
+        tests = TestTool(self._terminal(), self.config.testing.command)
         result = DebugAgent(self.provider, tests).run(packet)
         self._remember(objective, packet, result)
         return result
 
     def commit_plan(self): return GitAgent(self.root).commit_plan()
+
+    def _terminal(self) -> TerminalTool:
+        return TerminalTool(self.root, cancel_event=getattr(self.provider, "cancel_event", None))
 
     def _file_snapshot(self) -> dict[str, tuple[int, int]]:
         snapshot: dict[str, tuple[int, int]] = {}

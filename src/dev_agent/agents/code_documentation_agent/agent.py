@@ -3,11 +3,16 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Documentar código alterado sem modificar cabeçalhos existentes.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Aplicar a Skill reutilizável de documentação de código.
 from __future__ import annotations
 
 from dev_agent.agents.base import SubAgent
 from dev_agent.core.models import ContextPacket, SubAgentResult
 from dev_agent.providers.base import LLMProvider
+from dev_agent.skills.registry import get_skill
 
 
 class CodeDocumentationAgent(SubAgent):
@@ -24,12 +29,18 @@ class CodeDocumentationAgent(SubAgent):
         if not files:
             return SubAgentResult(agent=self.name, summary="Não aplicável: nenhum arquivo de código alterado foi selecionado.")
         context = "\n\n".join(f"### {name}\n{packet.file_contents[name]}" for name in files)
+        documentation_skill = get_skill("code-documentation")
+        header_skill = get_skill("code-header")
         response = self.provider.run(
             f"""Você é o CodeDocumentationAgent do DevAgent. Trabalhe somente em {packet.project_root}.
 Documente apenas os arquivos de código selecionados e somente quando isso esclarecer regras de negócio,
 efeitos colaterais, contratos ou decisões não óbvias. Prefira docstrings e comentários curtos; não descreva
 o óbvio, não refatore e não altere comportamento. Não modifique nenhum cabeçalho existente. Para arquivos
 novos sem cabeçalho, o orquestrador aplicará o padrão do projeto após sua execução.
+
+Skills aplicadas:
+code-documentation: {documentation_skill.instructions}
+code-header: {header_skill.instructions}
 
 Objetivo: {packet.objective}
 

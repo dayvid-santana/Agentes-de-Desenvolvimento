@@ -45,4 +45,10 @@ class SessionStore:
 
     def clear(self) -> None:
         if self.path.exists():
-            self.path.unlink()
+            try:
+                self.path.unlink()
+            except PermissionError:
+                # A sessão global pode estar aberta por outra instância no Windows.
+                # Em vez de impedir a tarefa atual, isola a nova sessão no diretório
+                # temporário, que já é o fallback de escrita de ``activate``.
+                self.path = Path(tempfile.gettempdir()) / "DevAgent" / "current-session.json"

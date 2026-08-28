@@ -49,12 +49,10 @@ def test_gateway_runs_a_read_only_specialist():
     assert suggestions == []
 
 
-def test_gateway_requires_confirmation_before_task():
+def test_gateway_rejects_direct_task_execution():
     service = FakeOrchestrator()
 
     with pytest.raises(UnsafeCommandError):
         AssistantGateway(service).invoke("task", "Alterar projeto")
-
-    results, _ = AssistantGateway(service).invoke("task", "Alterar projeto", confirmed_write=True)
-    assert service.task_objective == "Alterar projeto"
-    assert results[0].agent == "implementation"
+    with pytest.raises(UnsafeCommandError):
+        AssistantGateway(service).invoke("task", "Alterar projeto", confirmed_write=True)

@@ -3,11 +3,16 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Compartilhar a execução somente leitura dos agentes especialistas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Aplicar revisão baseada em evidências aos agentes especialistas.
 from __future__ import annotations
 
 from dev_agent.agents.base import SubAgent
 from dev_agent.core.models import ContextPacket, SubAgentResult
 from dev_agent.providers.base import LLMProvider
+from dev_agent.skills.registry import get_skill
 
 
 class ReadOnlySpecialistAgent(SubAgent):
@@ -26,6 +31,7 @@ class ReadOnlySpecialistAgent(SubAgent):
             f"""Você é o {self.__class__.__name__} do DevAgent. Analise o objetivo e o diff do projeto
 {packet.project_name}, limitando-se ao contexto fornecido. Sua especialidade é {self.specialty}.
 {self.instructions}
+Skill evidence-review: {get_skill("evidence-review").instructions}
 Não altere arquivos, não invente fatos fora do contexto e não faça sugestões cosméticas.
 
 Objetivo: {packet.objective}

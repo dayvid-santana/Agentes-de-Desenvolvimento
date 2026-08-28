@@ -32,3 +32,11 @@ class CodexUnavailableError(DevAgentError):
 class ArchitectureDecisionRequired(DevAgentError):
     """A tarefa exige uma escolha arquitetural do usuário."""
 
+
+class InvalidStateTransitionError(DevAgentError):
+    """A máquina de estados de uma tarefa recebeu uma transição de fase inválida."""
+
+
+class TaskLoopDetectedError(DevAgentError):
+    """A mesma fase da máquina de estados foi repetida além do limite configurado."""
+

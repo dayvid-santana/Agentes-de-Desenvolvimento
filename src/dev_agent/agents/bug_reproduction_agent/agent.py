@@ -3,11 +3,16 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Transformar relatos de erro em reproduções e testes de regressão.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Aplicar a Skill reutilizável de reprodução de bugs.
 from __future__ import annotations
 
 from dev_agent.agents.base import SubAgent
 from dev_agent.core.models import ContextPacket, SubAgentResult
 from dev_agent.providers.base import LLMProvider
+from dev_agent.skills.registry import get_skill
 
 
 class BugReproductionAgent(SubAgent):
@@ -23,11 +28,14 @@ class BugReproductionAgent(SubAgent):
         if not any(signal in packet.objective.lower() for signal in self._signals):
             return SubAgentResult(agent=self.name, summary="Não aplicável: o objetivo não descreve uma falha a reproduzir.")
         context = "\n\n".join(f"### {name}\n{text}" for name, text in packet.file_contents.items())
+        reproduction_skill = get_skill("bug-reproduction")
         response = self.provider.run(
             f"""Você é o BugReproductionAgent do DevAgent. Use somente as evidências abaixo para transformar
 o relato em uma reprodução verificável. Não altere arquivos e não invente dados, causas ou resultados.
 Responda no formato: Pré-condições; Passos numerados; Resultado observado; Resultado esperado; Teste de
 regressão sugerido; Evidências ausentes.
+
+Skill bug-reproduction: {reproduction_skill.instructions}
 
 Relato: {packet.objective}
 
