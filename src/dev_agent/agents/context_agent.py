@@ -1,3 +1,8 @@
+# dev-agent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Priorizar contexto pertinente para análises e diagnósticos.
+# DevAgent-Task: debug-evidence-20260828
 """Seleção progressiva e limitada de contexto do projeto."""
 from __future__ import annotations
 import re
@@ -20,8 +25,12 @@ class ContextAgent(SubAgent):
         instructions, docs = self._documentation()
         terms = re.findall(r"[\wÀ-ÿ_-]{3,}", objective.lower())
         candidates = list(dict.fromkeys(self.search.find_names(terms, self.config.context.max_files) + self.search.search_text(terms, self.config.context.max_files)))
-        preferred = [item for item in docs if item not in candidates]
-        selected = (preferred + candidates)[:self.config.context.max_files]
+        changed = self._changed_files(git_diff or "")
+        required = [item for item in docs if item.endswith("AGENTS.md")]
+        relevant_docs = [item for item in candidates if item in docs and item not in required]
+        code_and_tests = [item for item in [*changed, *candidates] if item not in docs]
+        fallback_docs = [item for item in docs if item not in required and item not in relevant_docs]
+        selected = list(dict.fromkeys([*required, *changed, *relevant_docs, *code_and_tests, *fallback_docs]))[:self.config.context.max_files]
         contents: dict[str, str] = {}
         budget = self.config.context.max_total_chars
         for relative in selected:
@@ -37,6 +46,10 @@ class ContextAgent(SubAgent):
 
     def run(self, packet: ContextPacket) -> SubAgentResult:
         return SubAgentResult(agent=self.name, summary=f"Contexto selecionou {len(packet.relevant_files)} arquivo(s).", files_read=packet.relevant_files)
+
+    @staticmethod
+    def _changed_files(git_diff: str) -> list[str]:
+        return list(dict.fromkeys(re.findall(r"^\+\+\+ b/(.+)$", git_diff, re.MULTILINE)))
 
     def _documentation(self) -> tuple[list[str], list[str]]:
         found: list[str] = []

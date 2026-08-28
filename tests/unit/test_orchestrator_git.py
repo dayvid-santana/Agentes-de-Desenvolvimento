@@ -1,3 +1,7 @@
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Cobrir o encadeamento de agentes especialistas.
 from pathlib import Path
 from dev_agent.agents.git_agent import GitAgent
 from dev_agent.config.loader import render_default_config
@@ -20,3 +24,15 @@ def test_commit_plan_groups_tests_and_code(tmp_path: Path, monkeypatch):
     plan = agent.commit_plan()
     assert len(plan) == 2
     assert plan[0].message.startswith("feat:") or plan[0].message.startswith("feat(")
+
+
+def test_task_runs_specialists(tmp_path: Path, monkeypatch):
+    from dev_agent.core.models import SubAgentResult
+
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    service = Orchestrator(tmp_path, FakeCodexProvider(), SessionStore(tmp_path / "session.json"))
+    monkeypatch.setattr(service.git, "diff", lambda staged=False: "")
+    monkeypatch.setattr("dev_agent.core.orchestrator.TestAgent.run", lambda self, packet: SubAgentResult(agent="test", summary="ok"))
+    results = service.task("Adicionar validação simples")
+    expected = {"requirements", "documentation_writer", "security", "database", "api_contract", "quality", "dependency", "performance", "frontend", "observability", "release", "refactor"}
+    assert {item.agent for item in results} >= expected

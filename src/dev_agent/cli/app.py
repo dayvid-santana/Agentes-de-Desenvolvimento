@@ -1,3 +1,7 @@
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 26/08/2026
+# Objetivo: Expor a listagem de comandos da CLI.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -28,6 +32,31 @@ def _api(method: str, endpoint: str, payload: dict | None = None):
     if response.is_error: raise typer.BadParameter(response.json().get("detail", response.text))
     return response.json()
 def _project_payload(**extra): return {"cwd": str(_cwd()), **extra}
+
+@app.command("commands")
+def commands() -> None:
+    """Lista os comandos principais e exemplos rápidos de uso."""
+    print(
+        "[bold]Comandos disponíveis[/bold]\n\n"
+        "[cyan]init[/cyan]     Cria o arquivo dev-agent.yaml no projeto atual.\n"
+        "[cyan]doctor[/cyan]   Verifica Python, Git, Codex, API e configuração.\n"
+        "[cyan]start[/cyan]    Inicia a API local.\n"
+        "[cyan]stop[/cyan]     Para a API local.\n"
+        "[cyan]status[/cyan]   Exibe o estado da API local.\n"
+        "[cyan]context[/cyan]  Monta o contexto do projeto.\n"
+        "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
+        "[cyan]task[/cyan]     Executa uma tarefa de desenvolvimento.\n"
+        "[cyan]review[/cyan]   Revisa alterações; use --staged para o índice Git.\n"
+        "[cyan]test[/cyan]     Executa os testes configurados.\n"
+        "[cyan]debug[/cyan]    Investiga um problema no projeto.\n"
+        "[cyan]commit[/cyan]   Sugere um plano de commit.\n"
+        "[cyan]session[/cyan]  Consulta a sessão; use session clear para removê-la.\n\n"
+        "[bold]Exemplos[/bold]\n"
+        "dev-agent ask \"Explique o fluxo de cadastro\"\n"
+        "dev-agent task \"Adicione validação de CPF\"\n"
+        "dev-agent review --staged\n\n"
+        "Use [cyan]dev-agent <comando> --help[/cyan] para os detalhes de cada comando."
+    )
 
 @app.command()
 def init() -> None:

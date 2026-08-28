@@ -1,5 +1,15 @@
+# dev-agent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Conectar depuração a evidências do projeto.
+# DevAgent-Task: debug-evidence-20260828
 """Coordena subagents com pacotes isolados e serialização de escrita."""
 from __future__ import annotations
+
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Integrar agentes especialistas ao fluxo de tarefas.
 import threading
 from pathlib import Path
 
@@ -9,6 +19,20 @@ from dev_agent.agents.documentation_agent import DocumentationAgent
 from dev_agent.agents.git_agent import GitAgent
 from dev_agent.agents.implementation_agent import ImplementationAgent
 from dev_agent.agents.review_agent import ReviewAgent
+from dev_agent.agents.specialist_agents import (
+    ApiContractAgent,
+    DatabaseAgent,
+    DependencyAgent,
+    DocumentationWriterAgent,
+    FrontendAgent,
+    ObservabilityAgent,
+    PerformanceAgent,
+    QualityAgent,
+    RefactorAgent,
+    ReleaseAgent,
+    RequirementsAgent,
+    SecurityAgent,
+)
 from dev_agent.agents.test_agent import TestAgent
 from dev_agent.config.loader import load_config
 from dev_agent.core.models import ContextPacket, SubAgentResult
@@ -52,15 +76,34 @@ class Orchestrator:
             return [SubAgentResult(agent="architecture_guard", summary=f"DECISÃO ARQUITETURAL NECESSÁRIA\n\nContexto: {assessment.reason}\n\nProblema: a tarefa indica uma mudança estrutural.\n\nOpção A: aprovar a abordagem proposta.\nVantagens: avanço direto.\nDesvantagens: impacto estrutural ainda precisa de desenho.\n\nOpção B: delimitar a mudança antes de implementar.\nVantagens: reduz risco.\nDesvantagens: exige decisão do usuário.\n\nMinha recomendação: delimitar a mudança.\n\nImpacto estimado: alto.", architecture_decision_required=True)]
         with self._write_lock:
             packet, context_result = self.context(objective)
+            requirements_result = RequirementsAgent(self.provider).run(packet)
             before = self._file_snapshot()
             implementation = ImplementationAgent(self.provider).run(packet)
             changed = self._changed_files(before)
             self._apply_headers(changed, objective)
             refreshed = self.context_agent.build(objective, git_diff=self.git.diff())
+            before_documentation = self._file_snapshot()
+            documentation_writer = DocumentationWriterAgent(self.provider).run(refreshed)
+            documentation_changed = self._changed_files(before_documentation)
+            self._apply_headers(documentation_changed, objective)
+            documentation_writer.files_changed = documentation_changed
+            refreshed = self.context_agent.build(objective, git_diff=self.git.diff())
             test_result = TestAgent(TestTool(TerminalTool(self.root), self.config.testing.command)).run(refreshed)
             review_result = ReviewAgent(self.provider).run(refreshed)
             docs_result = DocumentationAgent().run(refreshed)
-            results = [context_result, implementation, test_result, review_result, docs_result]
+            specialist_results = [
+                SecurityAgent(self.provider).run(refreshed),
+                DatabaseAgent(self.provider).run(refreshed),
+                ApiContractAgent(self.provider).run(refreshed),
+                QualityAgent(self.provider).run(refreshed),
+                DependencyAgent(self.provider).run(refreshed),
+                PerformanceAgent(self.provider).run(refreshed),
+                FrontendAgent(self.provider).run(refreshed),
+                ObservabilityAgent(self.provider).run(refreshed),
+                ReleaseAgent(self.provider).run(refreshed),
+                RefactorAgent(self.provider).run(refreshed),
+            ]
+            results = [context_result, requirements_result, implementation, documentation_writer, test_result, review_result, docs_result, *specialist_results]
             for result in results: self._remember(objective, refreshed, result)
             event("orchestrator.task.finished", project=str(self.root), agents=[item.agent for item in results], changed_files=changed)
             return results
@@ -76,7 +119,10 @@ class Orchestrator:
 
     def debug(self, objective: str) -> SubAgentResult:
         packet, _ = self.context(objective)
-        return DebugAgent().run(packet)
+        tests = TestTool(TerminalTool(self.root), self.config.testing.command)
+        result = DebugAgent(self.provider, tests).run(packet)
+        self._remember(objective, packet, result)
+        return result
 
     def commit_plan(self): return GitAgent(self.root).commit_plan()
 

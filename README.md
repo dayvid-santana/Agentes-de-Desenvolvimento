@@ -1,3 +1,10 @@
+<!--
+DevAgent
+Autor: Dayvid Santana
+Data: 28/08/2026
+Objetivo: Documentar os agentes especialistas disponíveis.
+-->
+
 # DevAgent
 
 DevAgent é uma CLI global para desenvolvimento assistido por IA em projetos locais. A instalação contém agentes, ferramentas, API e provider; cada projeto atendido contém somente seu `dev-agent.yaml`, código e documentação.
@@ -85,6 +92,10 @@ O arquivo completo criado por `init` inclui prioridades de documentação, limit
 O DevAgent limita arquivos, buscas e escrita à raiz ativa, redige o contexto de padrões sensíveis configurados e não executa `git reset --hard`, `git clean -fd`, `git push --force`, `git branch -D` ou remoções recursivas sem confirmação explícita. `commit` apenas sugere um plano de Conventional Commits; não cria commits e nunca faz push.
 
 Uma tarefa que indique mudança estrutural (framework, banco, autenticação, microserviço ou contrato público) é interrompida com uma decisão arquitetural formatada para o usuário.
+
+## Agentes especializados
+
+Além de contexto, implementação, testes, revisão, documentação, depuração e Git, `dev-agent task` coordena agentes de requisitos, segurança, banco de dados, contratos de API, qualidade, dependências, desempenho, frontend, observabilidade, release e refatoração. Eles recebem apenas o contexto e o diff selecionados, fazem análises somente de leitura e retornam riscos ou próximos passos. O `DocumentationWriterAgent` pode atualizar `README.md`, `docs/` ou documentação de API quando a implementação tornar isso necessário; ele não altera código nem dependências.
 
 ## Desenvolvimento
 

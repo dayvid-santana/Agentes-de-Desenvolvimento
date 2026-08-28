@@ -1,7 +1,13 @@
 from pathlib import Path
 from fastapi.testclient import TestClient
+from typer.testing import CliRunner
+
 from dev_agent.api.app import app
+from dev_agent.cli.app import app as cli_app
 from dev_agent.config.loader import render_default_config
+
+
+runner = CliRunner()
 
 def test_health_endpoint():
     client = TestClient(app)
@@ -14,3 +20,13 @@ def test_project_activate_via_api(tmp_path: Path, monkeypatch):
     response = client.post("/project/activate", json={"cwd": str(tmp_path)})
     assert response.status_code == 200
     assert response.json()["project_name"] == "Demo"
+
+
+def test_commands_lists_the_main_cli_commands():
+    result = runner.invoke(cli_app, ["commands"])
+
+    assert result.exit_code == 0
+    assert "Comandos disponíveis" in result.output
+    assert "init" in result.output
+    assert "task" in result.output
+    assert "review --staged" in result.output
