@@ -8,10 +8,17 @@
 # Data: 28/08/2026
 # Objetivo: Cobrir a seleção de código e dependências de contexto.
 # DevAgent-Task: context-code-selection-20260828
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Cobrir documentação de código, testes e reprodução de bugs.
 from pathlib import Path
 from dev_agent.agents.debug_agent import DebugAgent
+from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
+from dev_agent.agents.code_documentation_agent import CodeDocumentationAgent
 from dev_agent.agents.context_agent import ContextAgent
 from dev_agent.agents.review_agent import ReviewAgent
+from dev_agent.agents.test_author_agent import TestAuthorAgent
 from dev_agent.agents.specialist_agents import (
     ApiContractAgent,
     DatabaseAgent,
@@ -72,6 +79,14 @@ def test_context_agent_respects_include_and_follows_local_dependencies(tmp_path:
     assert "private/workflow_notes.py" not in packet.relevant_files
 
 
+def test_context_agent_includes_explicit_untracked_changes(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "new_service.py").write_text("def run(): pass", encoding="utf-8")
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Documentar serviço", changed_files=["src/new_service.py"])
+    assert "src/new_service.py" in packet.relevant_files
+
+
 def test_debug_agent_uses_test_evidence_and_read_only_provider(tmp_path: Path):
     class RecordingProvider(FakeCodexProvider):
         def __init__(self): self.prompt = ""; self.write_access = True
@@ -116,3 +131,35 @@ def test_documentation_writer_receives_write_access(tmp_path: Path):
     packet = ContextPacket(project_name="Demo", project_root=tmp_path, objective="Adicionar tela")
     result = DocumentationWriterAgent(provider).run(packet)
     assert result.agent == "documentation_writer" and provider.write_access
+
+
+def test_code_documentation_and_test_author_receive_write_access(tmp_path: Path):
+    class RecordingProvider(FakeCodexProvider):
+        def __init__(self):
+            self.accesses: list[bool] = []
+
+        def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+            self.accesses.append(write_access)
+            return "Alteração avaliada"
+
+    provider = RecordingProvider()
+    packet = ContextPacket(project_name="Demo", project_root=tmp_path, objective="Criar serviço", file_contents={"src/service.py": "def run(): pass"}, relevant_files=["src/service.py"])
+    assert CodeDocumentationAgent(provider).run(packet).agent == "code_documentation"
+    assert TestAuthorAgent(provider).run(packet).agent == "test_author"
+    assert provider.accesses == [True, True]
+
+
+def test_bug_reproduction_is_read_only_and_skips_non_bug_requests(tmp_path: Path):
+    class RecordingProvider(FakeCodexProvider):
+        def __init__(self):
+            self.write_access = True
+
+        def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+            self.write_access = write_access
+            return "Passos de reprodução"
+
+    provider = RecordingProvider()
+    bug = BugReproductionAgent(provider).run(ContextPacket(project_name="Demo", project_root=tmp_path, objective="Erro ao salvar fatura"))
+    skipped = BugReproductionAgent(provider).run(ContextPacket(project_name="Demo", project_root=tmp_path, objective="Adicionar filtro"))
+    assert bug.summary == "Passos de reprodução" and not provider.write_access
+    assert "Não aplicável" in skipped.summary

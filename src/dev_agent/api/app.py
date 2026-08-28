@@ -1,5 +1,9 @@
 """API local, escutada somente em 127.0.0.1."""
 from __future__ import annotations
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Expor os agentes disponíveis pela API local.
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -27,6 +31,9 @@ async def known_error(_, exc: DevAgentError):
 
 @app.get("/health")
 def health(): return {"status": "ok", "host": "127.0.0.1"}
+
+@app.get("/agents")
+def agents(): return [agent.model_dump() for agent in Orchestrator.available_agents()]
 
 @app.get("/session")
 def session():

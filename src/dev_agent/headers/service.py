@@ -1,4 +1,8 @@
 """Aplicação central de cabeçalhos sem quebrar formatos especiais."""
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Preservar cabeçalhos existentes durante a documentação de código.
 from __future__ import annotations
 
 from datetime import date
@@ -17,21 +21,30 @@ class HeaderService:
     def supports(self, path: Path) -> bool:
         return path.name not in self._excluded_names and path.suffix.lower() in {*self._line, *self._block}
 
+    def has_header(self, path: Path, content: str) -> bool:
+        """Indica se o arquivo já inicia com um cabeçalho preservável."""
+        if not self.supports(path):
+            return False
+        text = content.lstrip("\ufeff")
+        if path.suffix.lower() == ".py" and text.startswith("#!"):
+            text = text.partition("\n")[2]
+        if path.suffix.lower() == ".xml" and text.startswith("<?xml"):
+            text = text.partition("\n")[2]
+        first = next((line.lstrip() for line in text.splitlines() if line.strip()), "")
+        if path.suffix.lower() in self._line:
+            return first.startswith(self._line[path.suffix.lower()])
+        return first.startswith(self._block[path.suffix.lower()][0])
+
     def apply(self, path: Path, content: str, objective: str, task_key: str, existing: str | None = None) -> str:
         if not self.config.headers.enabled or not self.supports(path):
             return content
-        old = existing if existing is not None else ""
-        initial = not old or self.config.project.name not in old[:2000]
-        entry = self._entry(path, objective, initial)
-        if task_key and f"DevAgent-Task: {task_key}" in old:
+        old = existing if existing is not None else content
+        if self.has_header(path, old):
             return content
+        entry = self._entry(path, objective, initial=True)
         marker = self._marker(path, task_key)
         entry = f"{entry}{marker}\n"
-        if initial:
-            return self._insert_safely(path, content, entry, initial=True)
-        if not self.config.headers.history:
-            return content
-        return self._insert_safely(path, content, entry, initial=False)
+        return self._insert_safely(path, content, entry, initial=True)
 
     def _entry(self, path: Path, objective: str, initial: bool) -> str:
         fields = ([self.config.project.name] if initial else []) + [f"Autor: {self.config.headers.author}", f"Data: {date.today().strftime(self.config.headers.date_format)}", f"Objetivo: {objective}"]

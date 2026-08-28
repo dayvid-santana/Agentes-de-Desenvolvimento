@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Expor metadados dos agentes disponíveis na API local.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Informar o comando de execução de cada agente.
+
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -30,6 +39,13 @@ class SubAgentResult(BaseModel):
     next_actions: list[str] = Field(default_factory=list)
 
 
+class AgentDescriptor(BaseModel):
+    name: str
+    description: str
+    mode: str
+    command: str
+
+
 class ReviewFinding(BaseModel):
     severity: str
     message: str
@@ -41,4 +57,3 @@ class CommitSuggestion(BaseModel):
     message: str
     files: list[str]
     rationale: str
-

@@ -2,6 +2,14 @@
 # Autor: Dayvid Santana
 # Data: 26/08/2026
 # Objetivo: Expor a listagem de comandos da CLI.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Expor a listagem dos agentes pela API local.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Aceitar mensagens de depuração como argumento posicional.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -43,6 +51,7 @@ def commands() -> None:
         "[cyan]start[/cyan]    Inicia a API local.\n"
         "[cyan]stop[/cyan]     Para a API local.\n"
         "[cyan]status[/cyan]   Exibe o estado da API local.\n"
+        "[cyan]agents[/cyan]   Lista os agentes disponíveis e seus modos.\n"
         "[cyan]context[/cyan]  Monta o contexto do projeto.\n"
         "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
         "[cyan]task[/cyan]     Executa uma tarefa de desenvolvimento.\n"
@@ -83,6 +92,8 @@ def start() -> None: print("[green]Servidor iniciado.[/green]" if server.start()
 def stop() -> None: print("[green]Servidor parado.[/green]" if server.stop() else "Servidor não estava ativo.")
 @app.command()
 def status() -> None: print("[green]ativo[/green]" if server.running() else "inativo")
+@app.command("agents")
+def agents() -> None: print(Pretty(_api("GET", "/agents")))
 @app.command()
 def context(objective: str = "Compreender o projeto") -> None: print(Pretty(_api("POST", "/agent/context", _project_payload(objective=objective))))
 @app.command()
@@ -94,7 +105,7 @@ def review(staged: bool = typer.Option(False, "--staged")) -> None: print(Pretty
 @app.command()
 def test() -> None: print(Pretty(_api("POST", "/agent/test", _project_payload())))
 @app.command()
-def debug(message: str = "Investigar o estado atual do projeto") -> None: print(Pretty(_api("POST", "/agent/debug", _project_payload(objective=message))))
+def debug(message: str = typer.Argument("Investigar o estado atual do projeto", help="Erro, comportamento ou fluxo a investigar.")) -> None: print(Pretty(_api("POST", "/agent/debug", _project_payload(objective=message))))
 @app.command()
 def commit() -> None: print(Pretty(_api("POST", "/git/commit-plan", _project_payload())))
 

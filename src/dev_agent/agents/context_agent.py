@@ -9,6 +9,10 @@
 # Data: 28/08/2026
 # Objetivo: Selecionar código, testes e dependências locais relevantes.
 # DevAgent-Task: context-code-selection-20260828
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Incluir arquivos alterados ainda não rastreados pelo Git.
 from __future__ import annotations
 
 import re
@@ -34,7 +38,13 @@ class ContextAgent(SubAgent):
             config.context.include,
         )
 
-    def build(self, objective: str, previous_summary: str | None = None, git_diff: str | None = None) -> ContextPacket:
+    def build(
+        self,
+        objective: str,
+        previous_summary: str | None = None,
+        git_diff: str | None = None,
+        changed_files: list[str] | None = None,
+    ) -> ContextPacket:
         instructions, docs = self._documentation()
         terms = re.findall(r"[\wÀ-ÿ_-]{3,}", objective.lower())
         explicit = self._explicit_paths(objective)
@@ -44,7 +54,7 @@ class ContextAgent(SubAgent):
                 + self.search.search_text(terms, self.config.context.max_files)
             )
         )
-        changed = self._existing_paths(self._changed_files(git_diff or ""))
+        changed = self._existing_paths([*self._changed_files(git_diff or ""), *(changed_files or [])])
         required = [item for item in docs if item.endswith("AGENTS.md")]
         relevant_docs = [item for item in candidates if item in docs and item not in required]
         code_and_tests = [item for item in [*explicit, *changed, *candidates] if item not in docs]

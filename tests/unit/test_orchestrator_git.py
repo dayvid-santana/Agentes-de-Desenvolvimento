@@ -2,6 +2,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Cobrir o encadeamento de agentes especialistas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 28/08/2026
+# Objetivo: Cobrir os novos agentes de documentação, teste e reprodução.
 from pathlib import Path
 from dev_agent.agents.git_agent import GitAgent
 from dev_agent.config.loader import render_default_config
@@ -34,5 +38,5 @@ def test_task_runs_specialists(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(service.git, "diff", lambda staged=False: "")
     monkeypatch.setattr("dev_agent.core.orchestrator.TestAgent.run", lambda self, packet: SubAgentResult(agent="test", summary="ok"))
     results = service.task("Adicionar validação simples")
-    expected = {"requirements", "documentation_writer", "security", "database", "api_contract", "quality", "dependency", "performance", "frontend", "observability", "release", "refactor"}
+    expected = {"requirements", "code_documentation", "test_author", "bug_reproduction", "documentation_writer", "security", "database", "api_contract", "quality", "dependency", "performance", "frontend", "observability", "release", "refactor"}
     assert {item.agent for item in results} >= expected
