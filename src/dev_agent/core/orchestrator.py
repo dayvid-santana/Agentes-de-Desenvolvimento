@@ -228,7 +228,9 @@ class Orchestrator:
 
     def _changed_files(self, before: dict[str, tuple[int, int]]) -> list[str]:
         after = self._file_snapshot()
-        return [name for name, state in after.items() if before.get(name) != state]
+        modified = [name for name, state in after.items() if before.get(name) != state]
+        deleted = [name for name in before if name not in after]
+        return [*modified, *deleted]
 
     def _apply_headers(self, files: list[str], objective: str) -> None:
         service = HeaderService(self.config)

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -44,6 +46,28 @@ class JobStore:
 
     def _write(self, state: JobState) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_text(state.model_dump_json(indent=2), encoding="utf-8")
-        temporary.replace(self.path)
+        with self._exclusive_lock():
+            temporary = self.path.with_suffix(".tmp")
+            temporary.write_text(state.model_dump_json(indent=2), encoding="utf-8")
+            temporary.replace(self.path)
+
+    @contextmanager
+    def _exclusive_lock(self):
+        lock_path = self.path.with_suffix(".lock")
+        deadline = time.monotonic() + 5
+        descriptor: int | None = None
+        while descriptor is None:
+            try:
+                descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    raise OSError(f"Não foi possível obter lock do estado de jobs: {lock_path}")
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            os.close(descriptor)
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass

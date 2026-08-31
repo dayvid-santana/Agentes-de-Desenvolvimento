@@ -178,6 +178,7 @@ class AgentJob(BaseModel):
     error: str | None = None
     cancellation_requested: bool = False
     resumable: bool = False
+    resume_attempts: int = 0
     last_checkpoint: Checkpoint | None = None
     created_at: datetime
     started_at: datetime | None = None

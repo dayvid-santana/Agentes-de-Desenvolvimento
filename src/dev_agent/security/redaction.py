@@ -18,6 +18,8 @@ class SensitiveDataRedactor:
         re.compile(r"(?i)(\bBearer\s+)([A-Za-z0-9._~+/-]{12,})"),
         re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL),
         re.compile(r"(?i)(https?://[^\s:/]+:)([^@\s/]+)(@)"),
+        re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b"),
+        re.compile(r"(?im)(\"(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\"\s*:\s*\")([^\"]+)(\")"),
     )
 
     @classmethod
@@ -27,4 +29,6 @@ class SensitiveDataRedactor:
         redacted = cls._patterns[0].sub(r"\1[REDACTED]", text)
         redacted = cls._patterns[1].sub(r"\1[REDACTED]", redacted)
         redacted = cls._patterns[2].sub("[REDACTED]", redacted)
-        return cls._patterns[3].sub(r"\1[REDACTED]\3", redacted)
+        redacted = cls._patterns[3].sub(r"\1[REDACTED]\3", redacted)
+        redacted = cls._patterns[4].sub("[REDACTED]", redacted)
+        return cls._patterns[5].sub(r"\1[REDACTED]\3", redacted)

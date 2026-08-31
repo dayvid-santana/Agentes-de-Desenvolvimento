@@ -174,7 +174,29 @@ def test_commands_lists_the_main_cli_commands():
     assert "Comandos disponíveis" in result.output
     assert "init" in result.output
     assert "task" in result.output
+    assert "document" in result.output
     assert "review --staged" in result.output
+
+
+def test_document_command_creates_a_safe_documentation_plan(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"id": "plan-123"}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["document", "src/modulo.py"])
+    assert result.exit_code == 0
+    assert recorded["method"] == "POST"
+    assert recorded["endpoint"] == "/assistant/task-plans"
+    assert "src/modulo.py" in recorded["payload"]["objective"]
+
+
+def test_document_is_listed_in_cli_help():
+    result = runner.invoke(cli_app, ["--help"])
+    assert result.exit_code == 0
+    assert "document" in result.output
 
 
 def test_agents_command_uses_local_api(monkeypatch):

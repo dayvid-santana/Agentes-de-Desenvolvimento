@@ -134,7 +134,9 @@ class TaskJobManager:
                 return job
             if not job.resumable or job.worktree_path is None or job.worktree_removed:
                 raise DevAgentError("Este job não pode ser retomado; não há checkpoint utilizável ou o worktree foi removido.")
-            job = job.model_copy(update={"status": "queued", "error": None, "cancellation_requested": False, "finished_at": None})
+            if job.resume_attempts >= 3:
+                raise DevAgentError("Este job atingiu o limite de 3 retomadas; revise o erro e crie um novo plano.")
+            job = job.model_copy(update={"status": "queued", "error": None, "cancellation_requested": False, "finished_at": None, "resume_attempts": job.resume_attempts + 1})
             self.state.jobs[job.id] = job
             cancel_event = threading.Event()
             self._cancellations[job.id] = cancel_event

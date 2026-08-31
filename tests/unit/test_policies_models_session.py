@@ -30,6 +30,12 @@ def test_architecture_guard_and_destructive_command_policy():
     CommandPolicy().ensure_safe("git reset --hard", confirmed=True)
 
 
+@pytest.mark.parametrize("command", ["git clean -df", "git push origin main -f", "Remove-Item target -Force -Recurse"])
+def test_command_policy_blocks_destructive_variants(command: str):
+    with pytest.raises(UnsafeCommandError):
+        CommandPolicy().ensure_safe(command)
+
+
 def test_redactor_removes_secret_values_but_preserves_context():
     text = 'API_KEY="super-secret-value"\nAuthorization: Bearer abcdefghijklmnop\nname = "demo"'
     redacted = SensitiveDataRedactor.redact(text)

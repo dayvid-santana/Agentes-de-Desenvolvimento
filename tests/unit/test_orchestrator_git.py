@@ -40,3 +40,12 @@ def test_task_runs_specialists(tmp_path: Path, monkeypatch):
     results = service.task("Adicionar validação simples")
     expected = {"requirements", "code_documentation", "test_author", "bug_reproduction", "documentation_writer", "security", "database", "api_contract", "quality", "dependency", "performance", "frontend", "observability", "release", "refactor"}
     assert {item.agent for item in results} >= expected
+
+
+def test_changed_files_include_deleted_paths(tmp_path: Path, monkeypatch):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    path = tmp_path / "src" / "obsolete.py"; path.parent.mkdir(); path.write_text("value = 1", encoding="utf-8")
+    service = Orchestrator(tmp_path, FakeCodexProvider(), SessionStore(tmp_path / "session.json"))
+    before = service._file_snapshot()
+    path.unlink()
+    assert "src\\obsolete.py" in service._changed_files(before)
