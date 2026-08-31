@@ -28,6 +28,11 @@ class GitTool:
     def diff(self, staged: bool = False) -> str:
         return self._git("diff", "--staged" if staged else "") if staged else self._git("diff")
 
+    def full_diff(self) -> str:
+        """Diff incluindo arquivos novos ainda não rastreados, via intent-to-add."""
+        self._git("add", "-A", "-N", ".")
+        return self._git("diff")
+
     def log(self, limit: int = 10) -> str:
         return self._git("log", f"-{limit}", "--oneline")
 

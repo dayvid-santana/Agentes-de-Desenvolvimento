@@ -184,7 +184,7 @@ class TaskJobManager:
                 on_checkpoint=lambda point: self._on_checkpoint(job_id, point),
                 resume_from=job.last_checkpoint,
             )
-            diff = SensitiveDataRedactor.redact(GitTool(worktree).diff()) or ""
+            diff = SensitiveDataRedactor.redact(GitTool(worktree).full_diff()) or ""
             partial = any(item.agent == "test" and item.warnings for item in results)
             final_status = "partially_completed" if partial else "completed"
             final_phase = TaskStatus.PARTIALLY_COMPLETED if partial else TaskStatus.COMPLETED

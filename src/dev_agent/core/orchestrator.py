@@ -107,6 +107,7 @@ class Orchestrator:
         if assessment.required and self.config.security.require_architecture_approval and not architecture_approved:
             return [SubAgentResult(agent="architecture_guard", summary=f"DECISÃO ARQUITETURAL NECESSÁRIA\n\nContexto: {assessment.reason}\n\nProblema: a tarefa indica uma mudança estrutural.\n\nOpção A: aprovar a abordagem proposta.\nVantagens: avanço direto.\nDesvantagens: impacto estrutural ainda precisa de desenho.\n\nOpção B: delimitar a mudança antes de implementar.\nVantagens: reduz risco.\nDesvantagens: exige decisão do usuário.\n\nMinha recomendação: delimitar a mudança.\n\nImpacto estimado: alto.", architecture_decision_required=True)]
 
+        is_project_documentation = objective.lower().startswith("documentar o projeto")
         machine = TaskStateMachine(job_id or uuid4().hex)
         results: list[SubAgentResult] = list(resume_from.results) if resume_from else []
         changed: list[str] = list(resume_from.changed_files) if resume_from else []
@@ -124,7 +125,8 @@ class Orchestrator:
                 packet, context_result = self.context(objective)
                 results.append(context_result)
                 machine.transition(TaskStatus.PLANNING)
-                results.append(self._provider_agent("requirements").run(packet))
+                if not is_project_documentation:
+                    results.append(self._provider_agent("requirements").run(packet))
                 checkpoint(1)
             else:
                 machine.status = TaskStatus.BLOCKED
@@ -132,44 +134,47 @@ class Orchestrator:
 
             if resume_phase in (None, TaskStatus.PLANNING):
                 machine.transition(TaskStatus.EXECUTING)
-                before = self._file_snapshot()
-                implementation = self._provider_agent("implementation").run(packet)
-                implementation_changed = self._changed_files(before)
-                self._apply_headers(implementation_changed, objective)
-                changed = list(dict.fromkeys([*changed, *implementation_changed]))
-                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-
-                before_code_documentation = self._file_snapshot()
-                code_documentation = self._provider_agent("code_documentation").run(refreshed)
-                code_documentation_changed = self._changed_files(before_code_documentation)
-                self._apply_headers(code_documentation_changed, objective)
-                code_documentation.files_changed = code_documentation_changed
-                changed = list(dict.fromkeys([*changed, *code_documentation_changed]))
-                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-
-                before_tests = self._file_snapshot()
-                test_author = self._provider_agent("test_author").run(refreshed)
-                test_author_changed = self._changed_files(before_tests)
-                self._apply_headers(test_author_changed, objective)
-                test_author.files_changed = test_author_changed
-                changed = list(dict.fromkeys([*changed, *test_author_changed]))
-                refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
-
-                before_documentation = self._file_snapshot()
-                documentation_writer = self._provider_agent("documentation_writer").run(refreshed)
-                documentation_changed = self._changed_files(before_documentation)
-                self._apply_headers(documentation_changed, objective)
-                documentation_writer.files_changed = documentation_changed
-                changed = list(dict.fromkeys([*changed, *documentation_changed]))
-
-                results += [implementation, code_documentation, test_author, documentation_writer]
-                if objective.lower().startswith("documentar o projeto"):
+                refreshed = packet
+                if is_project_documentation:
                     before_project_docs = self._file_snapshot()
-                    project_documentation = self._provider_agent("project_documentation").run(refreshed)
+                    project_documentation = self._provider_agent("project_documentation").run(packet)
                     project_documentation.files_changed = self._changed_files(before_project_docs)
                     self._apply_headers(project_documentation.files_changed, objective)
                     changed = list(dict.fromkeys([*changed, *project_documentation.files_changed]))
                     results.append(project_documentation)
+                    refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+                else:
+                    before = self._file_snapshot()
+                    implementation = self._provider_agent("implementation").run(packet)
+                    implementation_changed = self._changed_files(before)
+                    self._apply_headers(implementation_changed, objective)
+                    changed = list(dict.fromkeys([*changed, *implementation_changed]))
+                    refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                    before_code_documentation = self._file_snapshot()
+                    code_documentation = self._provider_agent("code_documentation").run(refreshed)
+                    code_documentation_changed = self._changed_files(before_code_documentation)
+                    self._apply_headers(code_documentation_changed, objective)
+                    code_documentation.files_changed = code_documentation_changed
+                    changed = list(dict.fromkeys([*changed, *code_documentation_changed]))
+                    refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                    before_tests = self._file_snapshot()
+                    test_author = self._provider_agent("test_author").run(refreshed)
+                    test_author_changed = self._changed_files(before_tests)
+                    self._apply_headers(test_author_changed, objective)
+                    test_author.files_changed = test_author_changed
+                    changed = list(dict.fromkeys([*changed, *test_author_changed]))
+                    refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
+
+                    before_documentation = self._file_snapshot()
+                    documentation_writer = self._provider_agent("documentation_writer").run(refreshed)
+                    documentation_changed = self._changed_files(before_documentation)
+                    self._apply_headers(documentation_changed, objective)
+                    documentation_writer.files_changed = documentation_changed
+                    changed = list(dict.fromkeys([*changed, *documentation_changed]))
+
+                    results += [implementation, code_documentation, test_author, documentation_writer]
                 checkpoint(2)
             else:
                 refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
@@ -177,11 +182,12 @@ class Orchestrator:
             if resume_phase in (None, TaskStatus.PLANNING, TaskStatus.EXECUTING):
                 machine.transition(TaskStatus.TESTING)
                 test_result = TestAgent(TestTool(self._terminal(), self.config.testing.command)).run(refreshed)
-                bug_reproduction = self._provider_agent("bug_reproduction").run(refreshed)
-                results += [test_result, bug_reproduction]
+                results.append(test_result)
+                if not is_project_documentation:
+                    results.append(self._provider_agent("bug_reproduction").run(refreshed))
                 checkpoint(3)
 
-            if resume_phase != TaskStatus.REVIEWING:
+            if resume_phase != TaskStatus.REVIEWING and not is_project_documentation:
                 machine.transition(TaskStatus.REVIEWING)
                 review_result = self._provider_agent("review").run(refreshed)
                 docs_result = AgentRegistry().create("documentation").run(refreshed)
@@ -191,6 +197,8 @@ class Orchestrator:
                 ]
                 results += [review_result, docs_result, *specialist_results]
                 checkpoint(4)
+            elif resume_phase != TaskStatus.REVIEWING:
+                machine.transition(TaskStatus.REVIEWING)
 
             failed_tests = any(item.agent == "test" and item.warnings for item in results)
             machine.transition(TaskStatus.PARTIALLY_COMPLETED if failed_tests else TaskStatus.COMPLETED)

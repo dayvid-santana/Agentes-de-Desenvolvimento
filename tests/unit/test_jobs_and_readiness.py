@@ -31,7 +31,7 @@ def test_codex_readiness_uses_a_minimal_read_only_probe(tmp_path: Path, monkeypa
     CodexProvider._readiness_cache.clear()
     monkeypatch.setattr("dev_agent.providers.codex.provider.shutil.which", lambda _: "C:/tools/codex.exe")
 
-    def run(self, command, timeout_seconds=None, cancel_event=None):
+    def run(self, command, timeout_seconds=None, cancel_event=None, input_text=None):
         calls.append(command)
         return CommandResult(command=command, exit_code=0, stdout="codex 1.0\n" if command[-1] == "--version" else "READY", stderr="", duration_ms=1)
 
@@ -47,7 +47,7 @@ def test_codex_retries_only_read_only_transient_failures(tmp_path: Path, monkeyp
     monkeypatch.setattr("dev_agent.providers.codex.provider.shutil.which", lambda _: "C:/tools/codex.exe")
     monkeypatch.setattr("dev_agent.providers.codex.provider.time.sleep", lambda _: None)
 
-    def run(self, command, timeout_seconds=None, cancel_event=None):
+    def run(self, command, timeout_seconds=None, cancel_event=None, input_text=None):
         calls.append(command)
         if len(calls) == 1:
             return CommandResult(command=command, exit_code=1, stdout="", stderr="network timeout", duration_ms=1)
@@ -92,6 +92,9 @@ class FakeGit:
         return worktree, f"dev-agent/{job_id}"
 
     def diff(self) -> str:
+        return "+ alteração isolada"
+
+    def full_diff(self) -> str:
         return "+ alteração isolada"
 
     def remove_worktree(self, target: Path) -> None:

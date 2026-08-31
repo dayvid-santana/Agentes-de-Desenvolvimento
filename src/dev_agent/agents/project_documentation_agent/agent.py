@@ -37,5 +37,6 @@ Contexto inicial:
 Responda com os documentos atualizados, os tópicos cobertos e lacunas restantes.""",
             packet.project_root,
             write_access=True,
+            timeout_seconds=1800,
         )
         return SubAgentResult(agent=self.name, summary=response, files_read=packet.documentation)

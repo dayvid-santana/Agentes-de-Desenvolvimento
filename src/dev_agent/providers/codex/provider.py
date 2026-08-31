@@ -45,15 +45,15 @@ class CodexProvider:
 
         terminal = TerminalTool(root, timeout_seconds=30)
         try:
-            version_result = terminal.run(["codex", "--version"], timeout_seconds=10)
+            version_result = terminal.run([executable, "--version"], timeout_seconds=10)
             if version_result.exit_code != 0:
                 readiness = self._failure(executable, version_result.stderr or version_result.stdout)
             else:
                 version = version_result.stdout.strip().splitlines()[0][:120] if version_result.stdout.strip() else "versão não informada"
                 probe = terminal.run(
                     [
-                        "codex", "exec", "--ephemeral", "--skip-git-repo-check", "-C", str(root),
-                        "--sandbox", "read-only", "--ask-for-approval", "never", "Responda somente: READY.",
+                        executable, "exec", "--ephemeral", "--skip-git-repo-check", "-C", str(root),
+                        "--sandbox", "read-only", "Responda somente: READY.",
                     ],
                     timeout_seconds=30,
                 )
@@ -89,16 +89,18 @@ class CodexProvider:
         return self._readiness(False, executable, version, "unknown", "O Codex não respondeu à verificação de prontidão.")
 
     def run(self, prompt: str, project_root: Path, *, write_access: bool = False, timeout_seconds: int = 600) -> str:
-        if not self.available():
+        executable = shutil.which("codex")
+        if not executable:
             raise CodexUnavailableError("A CLI `codex` não foi encontrada no PATH.")
         sandbox = "workspace-write" if write_access else "read-only"
         attempts = 1 if write_access else 3
         for attempt in range(attempts):
             try:
                 result = TerminalTool(project_root, timeout_seconds).run(
-                    ["codex", "exec", "--ephemeral", "--skip-git-repo-check", "-C", str(project_root), "--sandbox", sandbox, "--ask-for-approval", "never", prompt],
+                    [executable, "exec", "--ephemeral", "--skip-git-repo-check", "-C", str(project_root), "--sandbox", sandbox, "-"],
                     timeout_seconds,
                     cancel_event=self.cancel_event,
+                    input_text=prompt,
                 )
                 if result.exit_code != 0:
                     detail = result.stderr.strip() or result.stdout.strip()
