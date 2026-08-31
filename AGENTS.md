@@ -12,6 +12,7 @@
 ## Convenções
 
 - Python 3.11+, type hints, UTF-8, `pathlib.Path` para caminhos.
+- Nomes de funções e variáveis em código novo ou significativamente alterado devem estar em português e em camelCase (ex.: `obterContexto`, `arquivosAlterados`). Código existente em inglês/snake_case não precisa ser renomeado só por isso.
 - Funções pequenas e erros explícitos em `errors.py`.
 - Não adicionar frameworks ou camadas sem necessidade demonstrável.
 - Logs não devem conter credenciais, conteúdo de `.env`, chaves ou segredos.

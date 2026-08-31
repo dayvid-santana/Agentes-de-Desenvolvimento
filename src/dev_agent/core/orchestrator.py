@@ -223,7 +223,7 @@ class Orchestrator:
         self._remember(objective, packet, result)
         return result
 
-    def commit_plan(self): return GitAgent(self.root).commit_plan()
+    def commit_plan(self): return GitAgent(self.root, self.provider).commit_plan()
 
     def _terminal(self) -> TerminalTool:
         return TerminalTool(self.root, cancel_event=getattr(self.provider, "cancel_event", None))

@@ -33,6 +33,10 @@ class GitTool:
         self._git("add", "-A", "-N", ".")
         return self._git("diff")
 
+    def diff_paths(self, paths: list[str]) -> str:
+        """Diff de caminhos específicos já rastreados (não inclui arquivos novos)."""
+        return self._git("diff", "--", *paths) if paths else ""
+
     def log(self, limit: int = 10) -> str:
         return self._git("log", f"-{limit}", "--oneline")
 
