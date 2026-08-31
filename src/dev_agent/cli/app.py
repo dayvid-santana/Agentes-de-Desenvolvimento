@@ -69,6 +69,7 @@ def commands() -> None:
         "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
         "[cyan]task[/cyan]     Cria um plano de tarefa para aprovação.\n"
         "[cyan]document[/cyan] Documenta código e aplica cabeçalhos pelo fluxo aprovado.\n"
+        "[cyan]document-project[/cyan] Cria documentação abrangente do projeto.\n"
         "[cyan]run[/cyan]      Inicia um plano aprovado em worktree isolado.\n"
         "[cyan]job[/cyan]      Consulta o status de uma tarefa em background.\n"
         "[cyan]cancel[/cyan]   Solicita o cancelamento de uma tarefa em execução.\n"
@@ -136,6 +137,12 @@ def document(path: str) -> None:
     """Cria um plano para documentar código e aplicar o cabeçalho padrão."""
     objective = f"Documente o código de {path} e aplique o cabeçalho padrão quando o arquivo for alterado."
     plan = _api("POST", "/assistant/task-plans", _project_payload(objective=objective))
+    print(Pretty(plan))
+    print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
+@app.command("document-project")
+def document_project() -> None:
+    """Cria um plano para documentar README, docs e contratos do projeto."""
+    plan = _api("POST", "/assistant/task-plans", _project_payload(objective="Documentar o projeto atual de forma abrangente."))
     print(Pretty(plan))
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
 @app.command()

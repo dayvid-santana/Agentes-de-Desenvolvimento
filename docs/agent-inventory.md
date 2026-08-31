@@ -33,10 +33,10 @@ documento continua refletindo o catálogo real.
 
 ## Inventário
 
-Todos os 23 componentes abaixo já estavam implementados e em uso pelo
-`Orchestrator` antes desta auditoria; o trabalho desta etapa foi declará-los
-em `agents/catalog.yaml` como fonte única, não reescrevê-los. Recomendação
-para todos: **manter**.
+Todos os 24 componentes abaixo estão declarados no catálogo. O
+`ProjectDocumentationAgent` foi adicionado para atualizar a documentação
+abrangente sob confirmação, enquanto os demais permanecem disponíveis pelo
+`Orchestrator`. Recomendação para todos: **manter**.
 
 | id | módulo.classe | modo | finalidade | dependências | acionado por |
 |---|---|---|---|---|---|
@@ -44,6 +44,7 @@ para todos: **manter**.
 | requirements | `requirements_agent.agent.RequirementsAgent` | read | Critérios de aceite, escopo e ambiguidades | context | `dev-agent task` |
 | implementation | `implementation_agent.agent.ImplementationAgent` | write | Implementa a tarefa aprovada via provider | context, requirements | `dev-agent task` |
 | documentation_writer | `documentation_writer_agent.agent.DocumentationWriterAgent` | write | Atualiza README/docs quando necessário | implementation | `dev-agent task` |
+| project_documentation | `project_documentation_agent.agent.ProjectDocumentationAgent` | write | Atualiza documentação abrangente do projeto | context | `dev-agent document-project` |
 | code_documentation | `code_documentation_agent.agent.CodeDocumentationAgent` | write | Documenta código alterado sem tocar cabeçalhos | implementation | `dev-agent task` |
 | test_author | `test_author_agent.agent.TestAuthorAgent` | write | Cria testes de regressão para a alteração | implementation | `dev-agent task` |
 | bug_reproduction | `bug_reproduction_agent.agent.BugReproductionAgent` | read | Passos verificáveis de reprodução de falha | — | `dev-agent task` |

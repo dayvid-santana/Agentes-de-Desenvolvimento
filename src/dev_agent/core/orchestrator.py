@@ -163,6 +163,13 @@ class Orchestrator:
                 changed = list(dict.fromkeys([*changed, *documentation_changed]))
 
                 results += [implementation, code_documentation, test_author, documentation_writer]
+                if objective.lower().startswith("documentar o projeto"):
+                    before_project_docs = self._file_snapshot()
+                    project_documentation = self._provider_agent("project_documentation").run(refreshed)
+                    project_documentation.files_changed = self._changed_files(before_project_docs)
+                    self._apply_headers(project_documentation.files_changed, objective)
+                    changed = list(dict.fromkeys([*changed, *project_documentation.files_changed]))
+                    results.append(project_documentation)
                 checkpoint(2)
             else:
                 refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)

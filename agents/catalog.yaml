@@ -60,6 +60,19 @@ agents:
     legacy: false
     status: active
 
+  - id: project_documentation
+    name: project_documentation
+    module: dev_agent.agents.project_documentation_agent.agent
+    class_name: ProjectDocumentationAgent
+    purpose: Atualiza a documentação abrangente do projeto atual.
+    mode: write
+    kind: subagent
+    tools: [provider, filesystem, search]
+    dependencies: [context]
+    invocation: dev-agent document-project
+    legacy: false
+    status: active
+
   - id: code_documentation
     name: code_documentation
     module: dev_agent.agents.code_documentation_agent.agent

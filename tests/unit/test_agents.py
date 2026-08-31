@@ -28,6 +28,7 @@ from dev_agent.agents.documentation_writer_agent import DocumentationWriterAgent
 from dev_agent.agents.frontend_agent import FrontendAgent
 from dev_agent.agents.observability_agent import ObservabilityAgent
 from dev_agent.agents.performance_agent import PerformanceAgent
+from dev_agent.agents.project_documentation_agent import ProjectDocumentationAgent
 from dev_agent.agents.quality_agent import QualityAgent
 from dev_agent.agents.refactor_agent import RefactorAgent
 from dev_agent.agents.release_agent import ReleaseAgent
@@ -133,6 +134,18 @@ def test_documentation_writer_receives_write_access(tmp_path: Path):
     packet = ContextPacket(project_name="Demo", project_root=tmp_path, objective="Adicionar tela")
     result = DocumentationWriterAgent(provider).run(packet)
     assert result.agent == "documentation_writer" and provider.write_access
+
+
+def test_project_documentation_agent_receives_write_access(tmp_path: Path):
+    class RecordingProvider(FakeCodexProvider):
+        def __init__(self): self.write_access = False
+        def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+            self.write_access = write_access
+            return "Documentação do projeto atualizada"
+
+    provider = RecordingProvider()
+    result = ProjectDocumentationAgent(provider).run(ContextPacket(project_name="Demo", project_root=tmp_path, objective="Documentar o projeto atual"))
+    assert result.agent == "project_documentation" and provider.write_access
 
 
 def test_code_documentation_and_test_author_receive_write_access(tmp_path: Path):

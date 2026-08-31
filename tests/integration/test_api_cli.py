@@ -199,6 +199,20 @@ def test_document_is_listed_in_cli_help():
     assert "document" in result.output
 
 
+def test_document_project_creates_a_project_documentation_plan(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"id": "plan-project-docs"}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["document-project"])
+    assert result.exit_code == 0
+    assert recorded["endpoint"] == "/assistant/task-plans"
+    assert recorded["payload"]["objective"].startswith("Documentar o projeto")
+
+
 def test_agents_command_uses_local_api(monkeypatch):
     monkeypatch.setattr("dev_agent.cli.app._api", lambda method, endpoint: [{"name": "context", "mode": "read", "command": "dev-agent context"}])
     result = runner.invoke(cli_app, ["agents"])
