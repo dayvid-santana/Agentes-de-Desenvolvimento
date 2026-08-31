@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from dev_agent.errors import ToolExecutionError
 from dev_agent.logging import event
+from dev_agent.security.command_policy import CommandPolicy
 
 
 class CommandResult(BaseModel):
@@ -32,7 +33,8 @@ class TerminalTool:
         self.timeout_seconds = timeout_seconds
         self.cancel_event = cancel_event
 
-    def run(self, command: list[str], timeout_seconds: int | None = None, cancel_event: threading.Event | None = None) -> CommandResult:
+    def run(self, command: list[str], timeout_seconds: int | None = None, cancel_event: threading.Event | None = None, *, confirmed_destructive: bool = False) -> CommandResult:
+        CommandPolicy().ensure_safe(" ".join(command), confirmed=confirmed_destructive)
         started = time.monotonic()
         event("tool.terminal.started", command=" ".join(command), cwd=str(self.cwd))
         timeout = timeout_seconds or self.timeout_seconds

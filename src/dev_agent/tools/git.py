@@ -66,7 +66,7 @@ class GitTool:
         resolved = target.resolve()
         if resolved.parent != parent:
             raise DevAgentError("O worktree informado não pertence a este projeto.")
-        result = self.terminal.run(["git", "worktree", "remove", "--force", str(resolved)], timeout_seconds=60)
+        result = self.terminal.run(["git", "worktree", "remove", "--force", str(resolved)], timeout_seconds=60, confirmed_destructive=True)
         if result.exit_code != 0:
             detail = result.stderr.strip() or result.stdout.strip() or "erro desconhecido"
             raise ToolExecutionError(f"Não foi possível remover o worktree: {detail}")

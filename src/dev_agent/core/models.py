@@ -168,7 +168,7 @@ class AgentJob(BaseModel):
     plan_id: str
     project_root: Path
     objective: str
-    status: Literal["queued", "running", "completed", "failed", "cancelled", "blocked"]
+    status: Literal["queued", "running", "completed", "partially_completed", "failed", "cancelled", "blocked"]
     phase: TaskStatus | None = None
     branch: str | None = None
     worktree_path: Path | None = None

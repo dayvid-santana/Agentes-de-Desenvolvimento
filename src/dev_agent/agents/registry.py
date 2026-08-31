@@ -45,6 +45,13 @@ class AgentRegistry:
     def graph(self) -> dict[str, list[str]]:
         return {manifest.id: manifest.dependencies for manifest in self.list()}
 
+    def create(self, agent_id: str, *args, **kwargs):
+        """Instancia um agent pelo entrypoint declarado no catálogo."""
+        manifest = self.get(agent_id)
+        module = importlib.import_module(manifest.module)
+        agent_type = getattr(module, manifest.class_name)
+        return agent_type(*args, **kwargs)
+
     def doctor(self) -> list[dict[str, str]]:
         diagnostics: list[dict[str, str]] = []
         for manifest in self.list():

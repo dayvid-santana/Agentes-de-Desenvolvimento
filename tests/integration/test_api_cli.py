@@ -129,7 +129,7 @@ def test_assistant_backend_resumes_a_blocked_job(tmp_path: Path, monkeypatch):
     job = manager.start(plan.id, confirmed_write=True)
     for _ in range(50):
         job = manager.get_job(job.id)
-        if job.status in {"completed", "failed", "cancelled"}:
+        if job.status in {"completed", "partially_completed", "failed", "cancelled", "blocked"}:
             break
         time.sleep(0.01)
     checkpoint = Checkpoint(
@@ -151,7 +151,7 @@ def test_assistant_backend_resumes_a_blocked_job(tmp_path: Path, monkeypatch):
 
     for _ in range(50):
         job = manager.get_job(job.id)
-        if job.status in {"completed", "failed", "cancelled"}:
+        if job.status in {"completed", "partially_completed", "failed", "cancelled", "blocked"}:
             break
         time.sleep(0.01)
     assert job.status == "completed"

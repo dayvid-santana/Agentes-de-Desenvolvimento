@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from dev_agent.core.models import AgentJob, Checkpoint, TaskPlan
+from dev_agent.core.models import AgentJob, Checkpoint, TaskPlan, TaskStatus
 from dev_agent.errors import ArchitectureDecisionRequired, DevAgentError, UnsafeCommandError
 from dev_agent.memory.job_store import JobState, JobStore
 from dev_agent.security.architecture_guard import ArchitectureGuard
+from dev_agent.security.redaction import SensitiveDataRedactor
 from dev_agent.tools.git import GitTool
 
 
@@ -181,17 +182,30 @@ class TaskJobManager:
                 on_checkpoint=lambda point: self._on_checkpoint(job_id, point),
                 resume_from=job.last_checkpoint,
             )
-            diff = GitTool(worktree).diff()
+            diff = SensitiveDataRedactor.redact(GitTool(worktree).diff()) or ""
+            partial = any(item.agent == "test" and item.warnings for item in results)
+            final_status = "partially_completed" if partial else "completed"
+            final_phase = TaskStatus.PARTIALLY_COMPLETED if partial else TaskStatus.COMPLETED
             self._update(job_id, results=results, diff=diff, resumable=False)
-            self._finish(job_id, "cancelled" if cancellation.is_set() else "completed")
+            self._finish(job_id, "cancelled" if cancellation.is_set() else final_status, phase=final_phase)
         except Exception as exc:  # Mantém a falha no job sem derrubar a API local.
-            self._finish(job_id, "cancelled" if cancellation.is_set() else "failed", error=self._safe_error(exc))
+            job = self.get_job(job_id)
+            if cancellation.is_set():
+                self._finish(job_id, "cancelled")
+            elif job.last_checkpoint is not None:
+                self._finish(job_id, "blocked", error=self._safe_error(exc), resumable=True)
+            else:
+                self._finish(job_id, "failed", error=self._safe_error(exc))
 
     def _on_checkpoint(self, job_id: str, point: Checkpoint) -> None:
         self._update(job_id, phase=point.phase, last_checkpoint=point, results=point.results, resumable=True)
 
-    def _finish(self, job_id: str, status: str, *, error: str | None = None) -> None:
+    def _finish(self, job_id: str, status: str, *, error: str | None = None, phase: TaskStatus | None = None, resumable: bool | None = None) -> None:
         changes: dict[str, object] = {"status": status, "error": error, "finished_at": self._now()}
+        if phase is not None:
+            changes["phase"] = phase
+        if resumable is not None:
+            changes["resumable"] = resumable
         if status == "cancelled":
             changes["resumable"] = False
         self._update(job_id, **changes)
@@ -243,4 +257,4 @@ class TaskJobManager:
         message = str(error)
         if any(term in message.lower() for term in ("api key", "token", "password", "secret")):
             return "A tarefa falhou; os detalhes foram ocultados por segurança."
-        return message[:500] or "A tarefa falhou sem detalhes disponíveis."
+        return (SensitiveDataRedactor.redact(message) or "")[:500] or "A tarefa falhou sem detalhes disponíveis."

@@ -72,7 +72,9 @@ POST /assistant/task-plans/{id}/start
 }
 ```
 
-O resultado inicial é um job com estado `queued`. Consulte `GET /assistant/jobs/{id}` para obter `running`, `completed`, `failed` ou `cancelled`, o diff, os resumos dos agents e o caminho do worktree. Para solicitar interrupção, use `POST /assistant/jobs/{id}/cancel`.
+O resultado inicial é um job com estado `queued`. Consulte `GET /assistant/jobs/{id}` para obter `running`, `completed`, `partially_completed`, `failed`, `cancelled` ou `blocked`, a fase atual ou terminal do pipeline, o diff redigido, os resumos redigidos dos agents e o caminho do worktree. Para solicitar interrupção, use `POST /assistant/jobs/{id}/cancel`.
+
+Se a API local for reiniciada com o job em andamento, ou se ele falhar depois de concluir ao menos uma fase, o job vira `blocked` (em vez de `failed`) e mantém o worktree. Use `POST /assistant/jobs/{id}/resume` para retomar a partir da última fase concluída, no mesmo worktree/branch, sem repetir chamadas ao provider já feitas com sucesso. Um job cancelado explicitamente nunca fica retomável. Veja [docs/orchestration.md](orchestration.md) para os detalhes da máquina de estados.
 
 Cada job cria uma branch `dev-agent/{id}` em um worktree separado. O checkout principal não é alterado. O projeto precisa estar limpo antes da execução; assim, mudanças locais preexistentes não são perdidas nem misturadas à tarefa. Após revisar ou integrar as mudanças, remova o worktree apenas com confirmação explícita via `POST /assistant/jobs/{id}/cleanup` e `{ "confirmed_cleanup": true }`; essa operação descarta alterações não commitadas naquele worktree.
 

@@ -22,6 +22,7 @@ from dev_agent.agents.base import SubAgent
 from dev_agent.config.models import DevAgentConfig
 from dev_agent.core.models import ContextPacket, SubAgentResult
 from dev_agent.errors import PathOutsideProjectError
+from dev_agent.security.redaction import SensitiveDataRedactor
 from dev_agent.tools.filesystem import FileSystem
 from dev_agent.tools.search import FileSearchTool
 
@@ -82,8 +83,9 @@ class ContextAgent(SubAgent):
                 item = self.files.read_text(relative, min(self.config.context.max_file_chars, budget))
             except (OSError, UnicodeDecodeError):
                 continue
-            contents[relative] = item.content
-            budget -= len(item.content)
+            redacted = SensitiveDataRedactor.redact(item.content) or ""
+            contents[relative] = redacted
+            budget -= len(redacted)
         return ContextPacket(
             project_name=self.config.project.name,
             project_root=self.root,
@@ -91,7 +93,7 @@ class ContextAgent(SubAgent):
             instructions=instructions,
             relevant_files=list(contents),
             documentation=docs,
-            git_diff=git_diff,
+            git_diff=SensitiveDataRedactor.redact(git_diff),
             previous_summary=previous_summary,
             file_contents=contents,
         )
@@ -198,7 +200,8 @@ class ContextAgent(SubAgent):
         for item in found:
             if item.endswith("AGENTS.md"):
                 try:
-                    instructions.append(self.files.read_text(item, self.config.context.max_file_chars).content)
+                    content = self.files.read_text(item, self.config.context.max_file_chars).content
+                    instructions.append(SensitiveDataRedactor.redact(content) or "")
                 except OSError:
                     pass
         return instructions, found

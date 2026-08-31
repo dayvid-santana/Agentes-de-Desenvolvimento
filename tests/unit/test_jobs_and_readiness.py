@@ -5,6 +5,12 @@
 from __future__ import annotations
 
 import sys
+# dev-agent
+# Autor: Dayvid Santana
+# Data: 31/08/2026
+# Objetivo: Cobrir status parcial para falhas de teste em jobs.
+# DevAgent-Task: resolve-audit-gaps-20260831
+
 import threading
 import time
 from datetime import datetime, timezone
@@ -117,7 +123,7 @@ def test_job_runs_in_isolated_worktree_and_persists_result(tmp_path: Path, monke
     job = manager.start(plan.id, confirmed_write=True)
     for _ in range(50):
         job = manager.get_job(job.id)
-        if job.status in {"completed", "failed", "cancelled"}:
+        if job.status in {"completed", "partially_completed", "failed", "cancelled", "blocked"}:
             break
         time.sleep(0.01)
 
@@ -125,6 +131,26 @@ def test_job_runs_in_isolated_worktree_and_persists_result(tmp_path: Path, monke
     assert job.worktree_path and job.worktree_path != tmp_path
     assert job.results[0].agent == "implementation"
     assert JobStore(tmp_path / "jobs.json").load().jobs[job.id].status == "completed"
+
+
+def test_job_marks_failed_tests_as_partially_completed(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("dev_agent.core.job_manager.GitTool", FakeGit)
+
+    class TestFailingOrchestrator:
+        def task(self, objective, **_):
+            return [SubAgentResult(agent="test", summary="falhou", warnings=["1 failed"])]
+
+    manager = TaskJobManager(lambda root, cancellation: TestFailingOrchestrator(), JobStore(tmp_path / "jobs.json"))
+    plan = manager.create_plan(tmp_path, "Demo", "Adicionar validação", [])
+    job = manager.start(plan.id, confirmed_write=True)
+    for _ in range(50):
+        job = manager.get_job(job.id)
+        if job.status in {"partially_completed", "failed", "cancelled", "blocked"}:
+            break
+        time.sleep(0.01)
+
+    assert job.status == "partially_completed"
+    assert job.phase == TaskStatus.PARTIALLY_COMPLETED
 
 
 def test_architecture_plan_requires_recorded_approval(tmp_path: Path, monkeypatch):
@@ -205,11 +231,11 @@ def test_job_can_be_resumed_from_its_last_checkpoint_after_a_failure(tmp_path: P
     job = manager.start(plan.id, confirmed_write=True)
     for _ in range(50):
         job = manager.get_job(job.id)
-        if job.status in {"completed", "failed", "cancelled"}:
+        if job.status in {"completed", "partially_completed", "failed", "cancelled", "blocked"}:
             break
         time.sleep(0.01)
 
-    assert job.status == "failed"
+    assert job.status == "blocked"
     assert job.resumable
     assert job.last_checkpoint is not None
     assert job.last_checkpoint.phase == TaskStatus.EXECUTING

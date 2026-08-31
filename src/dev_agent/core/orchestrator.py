@@ -39,29 +39,10 @@ from collections.abc import Callable
 from pathlib import Path
 from uuid import uuid4
 
-from dev_agent.agents.api_contract_agent import ApiContractAgent
-from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
-from dev_agent.agents.code_documentation_agent import CodeDocumentationAgent
 from dev_agent.agents.context_agent import ContextAgent
-from dev_agent.agents.database_agent import DatabaseAgent
-from dev_agent.agents.debug_agent import DebugAgent
-from dev_agent.agents.dependency_agent import DependencyAgent
-from dev_agent.agents.documentation_agent import DocumentationAgent
-from dev_agent.agents.documentation_writer_agent import DocumentationWriterAgent
-from dev_agent.agents.frontend_agent import FrontendAgent
 from dev_agent.agents.git_agent import GitAgent
-from dev_agent.agents.implementation_agent import ImplementationAgent
-from dev_agent.agents.observability_agent import ObservabilityAgent
-from dev_agent.agents.performance_agent import PerformanceAgent
-from dev_agent.agents.quality_agent import QualityAgent
-from dev_agent.agents.refactor_agent import RefactorAgent
 from dev_agent.agents.registry import AgentRegistry
-from dev_agent.agents.release_agent import ReleaseAgent
-from dev_agent.agents.requirements_agent import RequirementsAgent
-from dev_agent.agents.review_agent import ReviewAgent
-from dev_agent.agents.security_agent import SecurityAgent
 from dev_agent.agents.test_agent import TestAgent
-from dev_agent.agents.test_author_agent import TestAuthorAgent
 from dev_agent.config.loader import load_config
 from dev_agent.core.models import AgentDescriptor, Checkpoint, ContextPacket, SubAgentResult, TaskStatus
 from dev_agent.core.state_machine import TaskStateMachine
@@ -69,6 +50,7 @@ from dev_agent.headers.service import HeaderService
 from dev_agent.memory.session_store import ProjectSession, SessionStore
 from dev_agent.providers.base import LLMProvider
 from dev_agent.security.architecture_guard import ArchitectureGuard
+from dev_agent.security.redaction import SensitiveDataRedactor
 from dev_agent.tools.git import GitTool
 from dev_agent.tools.terminal import TerminalTool
 from dev_agent.tools.tests import TestTool
@@ -99,7 +81,7 @@ class Orchestrator:
         packet, _ = self.context(objective)
         context = "\n\n".join(f"### {name}\n{text}" for name, text in packet.file_contents.items())
         answer = self.provider.run(f"Responda em português à pergunta: {objective}\nUse somente este contexto do projeto:\n{context}", self.root, write_access=False)
-        result = SubAgentResult(agent="ask", summary=answer, files_read=packet.relevant_files)
+        result = SubAgentResult(agent="ask", summary=SensitiveDataRedactor.redact(answer) or "", files_read=packet.relevant_files)
         self._remember(objective, packet, result)
         return result
 
@@ -131,6 +113,7 @@ class Orchestrator:
         resume_phase = resume_from.phase if resume_from else None
 
         def checkpoint(step_index: int) -> None:
+            self._sanitize_results(results)
             point = machine.checkpoint(step_index=step_index, completed_agents=[item.agent for item in results], results=results, changed_files=changed)
             if on_checkpoint:
                 on_checkpoint(point)
@@ -141,7 +124,7 @@ class Orchestrator:
                 packet, context_result = self.context(objective)
                 results.append(context_result)
                 machine.transition(TaskStatus.PLANNING)
-                results.append(RequirementsAgent(self.provider).run(packet))
+                results.append(self._provider_agent("requirements").run(packet))
                 checkpoint(1)
             else:
                 machine.status = TaskStatus.BLOCKED
@@ -150,14 +133,14 @@ class Orchestrator:
             if resume_phase in (None, TaskStatus.PLANNING):
                 machine.transition(TaskStatus.EXECUTING)
                 before = self._file_snapshot()
-                implementation = ImplementationAgent(self.provider).run(packet)
+                implementation = self._provider_agent("implementation").run(packet)
                 implementation_changed = self._changed_files(before)
                 self._apply_headers(implementation_changed, objective)
                 changed = list(dict.fromkeys([*changed, *implementation_changed]))
                 refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
 
                 before_code_documentation = self._file_snapshot()
-                code_documentation = CodeDocumentationAgent(self.provider).run(refreshed)
+                code_documentation = self._provider_agent("code_documentation").run(refreshed)
                 code_documentation_changed = self._changed_files(before_code_documentation)
                 self._apply_headers(code_documentation_changed, objective)
                 code_documentation.files_changed = code_documentation_changed
@@ -165,7 +148,7 @@ class Orchestrator:
                 refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
 
                 before_tests = self._file_snapshot()
-                test_author = TestAuthorAgent(self.provider).run(refreshed)
+                test_author = self._provider_agent("test_author").run(refreshed)
                 test_author_changed = self._changed_files(before_tests)
                 self._apply_headers(test_author_changed, objective)
                 test_author.files_changed = test_author_changed
@@ -173,7 +156,7 @@ class Orchestrator:
                 refreshed = self.context_agent.build(objective, git_diff=self.git.diff(), changed_files=changed)
 
                 before_documentation = self._file_snapshot()
-                documentation_writer = DocumentationWriterAgent(self.provider).run(refreshed)
+                documentation_writer = self._provider_agent("documentation_writer").run(refreshed)
                 documentation_changed = self._changed_files(before_documentation)
                 self._apply_headers(documentation_changed, objective)
                 documentation_writer.files_changed = documentation_changed
@@ -187,39 +170,32 @@ class Orchestrator:
             if resume_phase in (None, TaskStatus.PLANNING, TaskStatus.EXECUTING):
                 machine.transition(TaskStatus.TESTING)
                 test_result = TestAgent(TestTool(self._terminal(), self.config.testing.command)).run(refreshed)
-                bug_reproduction = BugReproductionAgent(self.provider).run(refreshed)
+                bug_reproduction = self._provider_agent("bug_reproduction").run(refreshed)
                 results += [test_result, bug_reproduction]
                 checkpoint(3)
 
             if resume_phase != TaskStatus.REVIEWING:
                 machine.transition(TaskStatus.REVIEWING)
-                review_result = ReviewAgent(self.provider).run(refreshed)
-                docs_result = DocumentationAgent().run(refreshed)
+                review_result = self._provider_agent("review").run(refreshed)
+                docs_result = AgentRegistry().create("documentation").run(refreshed)
                 specialist_results = [
-                    SecurityAgent(self.provider).run(refreshed),
-                    DatabaseAgent(self.provider).run(refreshed),
-                    ApiContractAgent(self.provider).run(refreshed),
-                    QualityAgent(self.provider).run(refreshed),
-                    DependencyAgent(self.provider).run(refreshed),
-                    PerformanceAgent(self.provider).run(refreshed),
-                    FrontendAgent(self.provider).run(refreshed),
-                    ObservabilityAgent(self.provider).run(refreshed),
-                    ReleaseAgent(self.provider).run(refreshed),
-                    RefactorAgent(self.provider).run(refreshed),
+                    self._provider_agent(agent_id).run(refreshed)
+                    for agent_id in ("security", "database", "api_contract", "quality", "dependency", "performance", "frontend", "observability", "release", "refactor")
                 ]
                 results += [review_result, docs_result, *specialist_results]
                 checkpoint(4)
 
             failed_tests = any(item.agent == "test" and item.warnings for item in results)
             machine.transition(TaskStatus.PARTIALLY_COMPLETED if failed_tests else TaskStatus.COMPLETED)
+            self._sanitize_results(results)
             for result in results: self._remember(objective, refreshed, result)
             event("orchestrator.task.finished", project=str(self.root), agents=[item.agent for item in results], changed_files=changed, phase=machine.status.value)
             return results
 
     def review(self, staged: bool = False) -> SubAgentResult:
         packet, _ = self.context("Revisar alterações staged" if staged else "Revisar alterações atuais")
-        packet.git_diff = self.git.diff(staged)
-        return ReviewAgent(self.provider).run(packet)
+        packet.git_diff = SensitiveDataRedactor.redact(self.git.diff(staged))
+        return self._provider_agent("review").run(packet)
 
     def test(self) -> SubAgentResult:
         packet, _ = self.context("Executar testes do projeto")
@@ -228,7 +204,7 @@ class Orchestrator:
     def debug(self, objective: str) -> SubAgentResult:
         packet, _ = self.context(objective)
         tests = TestTool(self._terminal(), self.config.testing.command)
-        result = DebugAgent(self.provider, tests).run(packet)
+        result = AgentRegistry().create("debug", self.provider, tests).run(packet)
         self._remember(objective, packet, result)
         return result
 
@@ -236,6 +212,9 @@ class Orchestrator:
 
     def _terminal(self) -> TerminalTool:
         return TerminalTool(self.root, cancel_event=getattr(self.provider, "cancel_event", None))
+
+    def _provider_agent(self, agent_id: str):
+        return AgentRegistry().create(agent_id, self.provider)
 
     def _file_snapshot(self) -> dict[str, tuple[int, int]]:
         snapshot: dict[str, tuple[int, int]] = {}
@@ -258,11 +237,11 @@ class Orchestrator:
             path = self.root / name
             if not path.is_file() or not service.supports(path): continue
             try:
-                content = path.read_text(encoding="utf-8")
+                content = self.context_agent.files.read_text(name).content
             except (OSError, UnicodeDecodeError):
                 continue
             updated = service.apply(path, content, objective[:100], task_key, existing=content)
-            if updated != content: path.write_text(updated, encoding="utf-8", newline="\n")
+            if updated != content: self.context_agent.files.write_text(name, updated)
 
     def _remember(self, objective: str, packet: ContextPacket, result: SubAgentResult) -> None:
         session = self.store.load()
@@ -271,6 +250,13 @@ class Orchestrator:
         session.objective = objective
         session.recent_tasks = (session.recent_tasks + [objective])[-10:]
         session.related_files = packet.relevant_files[-30:]
-        session.summaries = (session.summaries + [f"{result.agent}: {result.summary[:500]}"])[-20:]
-        session.open_risks = result.warnings[-10:]
+        summary = SensitiveDataRedactor.redact(result.summary) or ""
+        session.summaries = (session.summaries + [f"{result.agent}: {summary[:500]}"])[-20:]
+        session.open_risks = [(SensitiveDataRedactor.redact(item) or "") for item in result.warnings[-10:]]
         self.store.activate(session)
+
+    @staticmethod
+    def _sanitize_results(results: list[SubAgentResult]) -> None:
+        for result in results:
+            result.summary = SensitiveDataRedactor.redact(result.summary) or ""
+            result.warnings = [(SensitiveDataRedactor.redact(item) or "") for item in result.warnings]
