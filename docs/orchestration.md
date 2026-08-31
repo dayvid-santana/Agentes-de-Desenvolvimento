@@ -1,96 +1,68 @@
 <!--
-DevAgent
+dev-agent
 Autor: Dayvid Santana
-Criado em: 28/08/2026
-Editado em: 28/08/2026
-Objetivo: Documentar a máquina de estados, os checkpoints e a retomada de jobs.
+Data: 31/08/2026
+Objetivo: Documentar o projeto atual de forma abrangente.
+-->
+<!--
+DevAgent-Task: 4826528013919681285
 -->
 
-# Orquestração: fases, checkpoints e retomada
 
-`Orchestrator.task()` executa um pipeline fixo de agents (não um loop aberto
-de ferramentas). Esse pipeline agora é acompanhado por uma máquina de
-estados explícita (`core/state_machine.py`, `TaskStateMachine`) que valida
-transições, limita passos, detecta repetição de fase e produz um
-`Checkpoint` (`core/models.py`) ao final de cada fase.
+# Orquestração, jobs e retomada
 
-## Fases usadas hoje pelo pipeline
+## Pipeline atual
 
-`TaskStatus` (`core/models.py`) define o conjunto completo de fases pedido
-para o Harness — incluindo `documenting`, `preparing_git` e `rolled_back`,
-reservadas para uso futuro (ver "Fases não usadas" abaixo). O pipeline de
-`task()` percorre, na ordem:
+`Orchestrator.task()` usa uma sequência fixa, não um loop aberto de ferramentas. A guarda arquitetural é avaliada antes da máquina de estados. Sem aprovação necessária, ou quando ela já foi registrada, as fases reais são:
 
-```
+```text
 RECEIVED
-   -> DISCOVERING     (context)
-   -> PLANNING        (requirements)                     [checkpoint 1]
-   -> EXECUTING        (implementation, code_documentation,
-                        test_author, documentation_writer) [checkpoint 2]
-   -> TESTING          (test, bug_reproduction)            [checkpoint 3]
-   -> REVIEWING        (review, documentation, 10 specialistas) [checkpoint 4]
-   -> COMPLETED | PARTIALLY_COMPLETED
+  -> DISCOVERING  : ContextAgent
+  -> PLANNING     : RequirementsAgent                 (checkpoint 1)
+  -> EXECUTING    : Implementation, CodeDocumentation,
+                    TestAuthor, DocumentationWriter   (checkpoint 2)
+  -> TESTING      : TestAgent, BugReproduction        (checkpoint 3)
+  -> REVIEWING    : Review, Documentation e dez especialistas
+                                                     (checkpoint 4)
+  -> COMPLETED | PARTIALLY_COMPLETED
 ```
 
-`PARTIALLY_COMPLETED` é usado quando o `TestAgent` reporta falha (em vez de
-`COMPLETED`); o job continua com todos os resultados coletados — a tarefa não
-é abortada por um teste falho, mas o status final sinaliza isso claramente.
+Quando o objetivo começa por `documentar o projeto` (sem diferenciar maiúsculas/minúsculas), `ProjectDocumentationAgent` é incluído na fase `EXECUTING`, depois de `DocumentationWriterAgent`.
 
-Nota de design: a documentação (`documentation_writer`) já acontece dentro do
-cluster EXECUTING, não depois de REVIEWING. Isso reflete o pipeline real
-(documentar faz parte de implementar a mudança, não uma etapa final
-separada) — não foi reordenado para caber no rótulo `DOCUMENTING` só por
-completude cosmética.
+O resultado final é `PARTIALLY_COMPLETED` quando o resultado do agente `test` contém avisos. A revisão e os especialistas ainda são executados nesse caso; a falha de testes não interrompe automaticamente a coleta de resultados.
 
-## Checkpoints
+## Contexto e escrita
 
-Cada checkpoint grava: `phase` (fase recém-concluída), `step_index`,
-`completed_agents`, os `SubAgentResult` acumulados até ali e os arquivos
-alterados até ali. `TaskJobManager` persiste o último checkpoint em
-`AgentJob.last_checkpoint` (via `JobStore`, sem gravar prompts, diffs ou
-segredos) e expõe a fase atual em `AgentJob.phase` — visível em
-`dev-agent job <id>`.
+`ContextAgent` prioriza `AGENTS.md` da raiz e dos subdiretórios, caminhos explícitos no objetivo, arquivos alterados, código/testes relacionados e documentação. Para Python, segue imports locais e testes de nome correspondente até `context.dependency_depth`. A seleção respeita `include`, `exclude`, `max_files`, `max_file_chars` e `max_total_chars`; o conteúdo é redigido antes de formar o pacote.
 
-## Retomada (`dev-agent resume <id>`)
+Na fase de execução, o orquestrador tira snapshots de arquivos antes e depois de cada agente que pode escrever. Ele atualiza a lista de arquivos modificados e, para formatos suportados, aplica `HeaderService` aos arquivos alterados que ainda não tenham cabeçalho. As escritas são serializadas por `Orchestrator._write_lock` dentro do processo.
 
-Quando a API local é reiniciada com um job `queued`/`running`, ou quando o
-pipeline falha após pelo menos um checkpoint, o job passa a `blocked` (em
-vez de `failed` incondicionalmente) contanto que o worktree ainda exista.
-`dev-agent resume <id>` (`POST /assistant/jobs/{id}/resume`) relança o
-pipeline no mesmo worktree/branch a partir da fase seguinte ao checkpoint —
-sem recriar o worktree e sem repetir chamadas ao provider já concluídas com
-sucesso. Um job cancelado explicitamente (`dev-agent cancel`) nunca fica
-resumível — cancelamento é uma decisão do usuário, não uma interrupção.
+## Planos e worktrees
 
-## Proteção contra loops
+`POST /assistant/task-plans` cria um `TaskPlan` persistido, sem chamar o Codex para escrever nem criar worktree. O plano registra arquivos relevantes, branch-base, avisos e a necessidade de decisão arquitetural.
 
-O pipeline de `task()` é determinístico (mesma ordem sempre), então
-"detecção de loop" aqui não é a mesma coisa que em um agent de ferramentas
-livre. `TaskStateMachine` aplica dois limites, ambos configuráveis por
-instância: `max_steps` (total de transições permitidas numa execução) e
-`max_phase_repeats` (quantas vezes a mesma fase pode ser reexecutada). Isso
-protege principalmente o ciclo `TESTING -> EXECUTING -> TESTING`, hoje
-modelado na tabela de transições mas não acionado automaticamente pelo
-orquestrador (não há retry automático de implementação após teste falho).
+`start` exige `confirmed_write=true`. Antes de executar, o gerenciador exige a aprovação registrada quando aplicável, e `GitTool.create_worktree()` exige um repositório Git limpo. Ele cria:
 
-## Fases não usadas hoje
+- branch `dev-agent/<id>`;
+- worktree em `.<nome-do-projeto>-dev-agent-worktrees/<id>` ao lado da raiz do projeto.
 
-`AWAITING_APPROVAL` já existe como decisão arquitetural, mas é resolvida
-antes de `task()` criar a máquina de estados (`ArchitectureGuard`, no nível
-do `TaskPlan`), não como uma transição dentro do pipeline. `DOCUMENTING`,
-`PREPARING_GIT` e `ROLLED_BACK` estão definidos no contrato (`TaskStatus`) e
-na tabela de transições para consistência com o desenho completo pedido para
-o Harness, mas nenhum caminho de código os produz ainda — não há um passo de
-"preparar Git" dentro de `task()` (isso é `GitAgent.commit_plan()`,
-separado) nem um mecanismo de rollback automático. Adicionar esses fluxos é
-trabalho futuro, não uma lacuna silenciosa: documentado aqui para não serem
-reintroduzidos por engano como "já implementados".
+O checkout principal não é alterado pela tarefa. O diff final é lido no worktree e passa pelo redator antes de ser persistido no job.
 
-## Limitação conhecida
+## Checkpoints, cancelamento e retomada
 
-`TaskStateMachine` é recriada a cada chamada de `task()` (inclusive em uma
-retomada); ela não mantém contagem de fases entre chamadas diferentes. Ou
-seja, `max_phase_repeats` protege uma única execução, mas não impede que um
-job seja retomado repetidamente pelo usuário após falhas sucessivas. Isso é
-aceitável porque retomar exige uma ação explícita do usuário (`dev-agent
-resume`) — não é um loop automático — mas fica registrado como limitação.
+Cada checkpoint contém a fase concluída, índice da etapa, agentes concluídos, resultados acumulados e arquivos alterados. `TaskJobManager` o persiste em `AgentJob.last_checkpoint` junto ao estado do job.
+
+Se o processo falhar depois de um checkpoint, o job fica `blocked` e pode ser retomado no mesmo worktree. Uma reinicialização da API também converte job `queued`/`running` em `blocked` quando ele está marcado como retomável, tem `worktree_path` e esse worktree ainda não foi marcado como removido; o recuperador não verifica a existência do caminho no sistema de arquivos. Nos demais casos ele falha. `resume` reutiliza os resultados do checkpoint e pula fases já concluídas. Há no máximo três retomadas por job. Um cancelamento explícito desabilita a retomada.
+
+`cancel` é cooperativo: o evento de cancelamento faz o `TerminalTool` terminar o processo em execução. `cleanup` requer confirmação e usa `git worktree remove --force`; portanto, descarta alterações não commitadas daquele worktree.
+
+## Estados declarados que não fazem parte do fluxo automático
+
+`TaskStatus` e a tabela de transições também contêm `AWAITING_APPROVAL`, `DOCUMENTING`, `PREPARING_GIT` e `ROLLED_BACK`.
+
+- A aprovação arquitetural ocorre no `TaskPlan`, antes de `task()`, e não como transição de pipeline.
+- A documentação atual ocorre em `EXECUTING`, não em `DOCUMENTING`.
+- `GitAgent.commit_plan()` é separado; não há preparação de Git automática.
+- Não existe rollback automático implementado.
+
+A máquina limita uma execução a 40 transições e cada fase a três repetições. Como ela é recriada em cada chamada de `task()`, esse limite não acumula entre chamadas de retomada; o limite independente de três retomadas do job é a proteção persistida.

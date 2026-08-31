@@ -1,134 +1,138 @@
 <!--
-DevAgent
+dev-agent
 Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar os agentes especialistas disponíveis.
+Data: 31/08/2026
+Objetivo: Documentar o projeto atual de forma abrangente.
 -->
 <!--
-Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar a seleção de contexto orientada a código.
-DevAgent-Task: context-code-selection-20260828
+DevAgent-Task: 4826528013919681285
 -->
-<!--
-Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar os agentes de documentação, testes e reprodução.
--->
-<!--
-DevAgent
-Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar a execução confiável e isolada de tarefas dos agents.
--->
-<!--
-DevAgent
-Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar a máquina de estados, os checkpoints e a retomada de jobs.
--->
+
 
 # DevAgent
 
-DevAgent é uma CLI global para desenvolvimento assistido por IA em projetos locais. A instalação contém agentes, ferramentas, API e provider; cada projeto atendido contém somente seu `dev-agent.yaml`, código e documentação.
+DevAgent é uma ferramenta local para coordenar tarefas de desenvolvimento assistidas por IA em projetos que possuem um `dev-agent.yaml`. Ela oferece uma CLI, uma API HTTP local, contexto limitado por projeto, agentes especializados e execução de escrita em worktrees Git isolados.
 
-## Windows 11: instalação
+O projeto é um pacote Python `0.1.0`, compatível com Python 3.11 ou superior. A integração de produção com o modelo é feita exclusivamente pela CLI Codex instalada na máquina; os testes usam fakes e não chamam o Codex real.
 
-Pré-requisitos: Python 3.11+, Git e uma instalação autenticada do Codex CLI (`codex --version`). No diretório deste repositório, crie um ambiente isolado e instale a CLI:
+## Começo rápido no Windows
+
+Pré-requisitos:
+
+- Python 3.11+;
+- Git;
+- Codex CLI no `PATH` e autenticado (verifique com `codex --version` e conclua `codex login`, quando necessário).
+
+Na raiz deste repositório:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+pytest
 ```
 
-O comando `dev-agent` passa a estar disponível enquanto o ambiente estiver ativo. Para uma instalação global isolada, prefira `pipx install .` (com `pipx` instalado) no diretório deste projeto.
+O executável `dev-agent` fica disponível enquanto o ambiente virtual estiver ativo. Para instalar em um ambiente isolado global, o README apenas prevê `pipx install .`; a configuração do `pipx` não é automatizada pelo projeto.
 
-Se a instalação `--user` informar que a pasta Scripts não está no `PATH`, acrescente-a uma vez ao PATH de usuário e abra um novo PowerShell:
-
-```powershell
-$scripts = "$env:APPDATA\Python\Python311\Scripts"
-[Environment]::SetEnvironmentVariable("Path", ([Environment]::GetEnvironmentVariable("Path", "User") + ";" + $scripts), "User")
-```
-
-O provider não recebe token nem credencial pelo DevAgent: autentique o Codex normalmente com `codex login` antes de usar `ask`, `task` ou a revisão enriquecida.
-
-## Dependências e Docker
-
-Para instalar todas as dependências de desenvolvimento no Windows, a partir da raiz deste repositório:
+Para usar o DevAgent em outro repositório, vá até ele e crie a configuração inicial:
 
 ```powershell
-python -m pip install -e ".[dev]"
-```
-
-Para preparar e iniciar a API no Docker Desktop:
-
-```powershell
-docker compose up --build api
-```
-
-A API Docker ficará disponível somente em `http://127.0.0.1:8766` (a CLI do host preserva `127.0.0.1:8765`). Para rodar a suíte de testes em contêiner:
-
-```powershell
-docker compose --profile test run --rm tests
-```
-
-O contêiner é um ambiente de desenvolvimento/testes para a API. O provider Codex continua sendo executado na instalação Windows autenticada do usuário; por isso, use a CLI global no host para `ask`, `task` e revisão com Codex.
-
-## Uso em qualquer projeto
-
-```powershell
-cd C:\Projetos\GestorPay
+cd C:\Projetos\MeuProjeto
 dev-agent init
 dev-agent doctor
 dev-agent context
-dev-agent ask "Explique o fluxo de cadastro de usuários"
-dev-agent task "Adicione normalização de CPF"
-# revise o plano exibido e confirme a escrita isolada
+dev-agent ask "Explique a arquitetura atual"
+```
+
+`init` não sobrescreve um `dev-agent.yaml` existente. Os demais comandos descobrem esse arquivo subindo a partir do diretório atual.
+
+## Fluxo de uma tarefa que escreve
+
+```text
+task -> plano sem escrita -> revisão/decisão arquitetural -> run --confirm
+     -> branch + worktree isolados -> pipeline -> testes/revisão -> job
+```
+
+Exemplo:
+
+```powershell
+dev-agent task "Adicionar validação de CPF"
 dev-agent run <id-do-plano> --confirm
 dev-agent job <id-do-plano>
 ```
 
-`init` nunca sobrescreve uma configuração existente. Todos os demais comandos procuram `dev-agent.yaml` subindo a partir do diretório atual. A API é iniciada automaticamente quando necessário e fica restrita a `127.0.0.1:8765`; `start`, `stop` e `status` também podem controlá-la explicitamente.
+O plano pode avisar que o repositório não está limpo ou não é Git. A execução só começa após confirmação explícita, requer um repositório Git limpo e cria a branch `dev-agent/<id>` em um worktree irmão do checkout principal. A tarefa é executada em segundo plano. Use `cancel` para solicitar cancelamento cooperativo, `resume` para um job bloqueado com checkpoint utilizável e `cleanup <id> --confirm` para remover um worktree finalizado.
 
-## Configuração por projeto
+Uma solicitação com termos estruturais, como autenticação, migração de banco ou contrato público, exige uma decisão arquitetural registrada antes da execução. Veja [a orquestração](docs/orchestration.md) e [a segurança](docs/security.md).
 
-```yaml
-project:
-  name: GestorPay
-  author: Dayvid Santana
-testing:
-  command: pytest
-headers:
-  enabled: true
-security:
-  require_architecture_approval: true
+## Comandos principais
+
+| Comando | Efeito atual |
+|---|---|
+| `init` | Cria `dev-agent.yaml` no diretório atual. |
+| `doctor` | Verifica Python, Git, Codex, FastAPI, API local e configuração descoberta. |
+| `start`, `stop`, `status` | Controlam a API local padrão em `127.0.0.1:8765`. |
+| `context [objetivo]` | Mostra o pacote de contexto selecionado. |
+| `ask <pergunta>` | Consulta o provider em modo somente leitura. |
+| `task <objetivo>` / `run <id> --confirm` | Cria plano e inicia escrita isolada. |
+| `document <caminho>` | Cria um plano para documentação de código. |
+| `document-project` | Cria um plano com objetivo de documentação abrangente. |
+| `job`, `cancel`, `resume`, `cleanup` | Consultam e controlam jobs assíncronos. |
+| `review [--staged]`, `test`, `debug <mensagem>` | Revisam diff, executam testes configurados ou investigam uma falha. |
+| `commit` | Sugere agrupamentos de Conventional Commits; não cria commit nem faz push. |
+| `agents [list|show|graph|doctor]` | Consulta o catálogo declarativo. |
+| `session [clear]` | Consulta ou remove a sessão local ativa. |
+
+Execute `dev-agent commands` ou `dev-agent <comando> --help` para a ajuda exposta pela CLI.
+
+## Arquitetura
+
+```text
+CLI (cliente HTTP) ─┐
+                    ├─> API FastAPI local ─> Orchestrator
+Assistente externa ─┘                         ├─> ContextAgent / AgentRegistry
+                                               ├─> tools (filesystem, Git, terminal, testes, busca)
+                                               └─> provider Codex
 ```
 
-O arquivo completo criado por `init` inclui prioridades de documentação, limites de contexto, exclusões, Git, cabeçalhos e segurança. YAML inválido resulta em erro claro na CLI.
+- `cli/` não importa agentes: atua como cliente da API local.
+- `api/` valida HTTP e encaminha ao `Orchestrator` ou ao gerenciador de jobs.
+- `core/` contém contratos Pydantic, orquestração, máquina de estados, gateway externo e jobs.
+- `agents/` contém agentes de uma única etapa; o catálogo em `agents/catalog.yaml` é a fonte única de seus metadados e entrypoints.
+- `tools/` centraliza operações de arquivo, Git, terminal, busca e testes. O `FileSystem` resolve caminhos dentro da raiz ativa.
+- `providers/` expõe o protocolo de LLM; `providers/codex/` encapsula os argumentos específicos do Codex.
 
-O `ContextAgent` sempre inclui instruções de `AGENTS.md`, aplica `context.include` e `context.exclude` à busca, aceita caminhos relativos citados no pedido e prioriza arquivos alterados, código e testes. Para código Python, ele também segue imports locais e testes correspondentes até `context.dependency_depth`, sempre respeitando os limites de arquivos e caracteres.
+O `Orchestrator` serializa as fases que podem escrever por meio de um lock de processo. Agentes recebem `ContextPacket` e retornam `SubAgentResult`, em vez de trocar histórico bruto. A visão completa está em [docs/orchestration.md](docs/orchestration.md) e o catálogo está em [docs/agent-inventory.md](docs/agent-inventory.md).
 
-## Comportamento de segurança
+## Mapa da documentação
 
-O DevAgent limita arquivos, buscas e escrita à raiz ativa, redige o contexto de padrões sensíveis configurados e não executa `git reset --hard`, `git clean -fd`, `git push --force`, `git branch -D` ou remoções recursivas sem confirmação explícita. `commit` apenas sugere um plano de Conventional Commits; não cria commits e nunca faz push.
+- [Visão geral e estrutura de diretórios](docs/overview.md)
+- [Configuração por projeto](docs/configuration.md)
+- [Orquestração, jobs e retomada](docs/orchestration.md)
+- [Inventário e registro de agentes](docs/agent-inventory.md)
+- [API local e integração com assistentes](docs/assistant-backend.md)
+- [Segurança e limites operacionais](docs/security.md)
+- [Desenvolvimento e testes](docs/testing.md)
 
-Uma tarefa que indique mudança estrutural (framework, banco, autenticação, microserviço ou contrato público) é interrompida com uma decisão arquitetural formatada para o usuário.
+## Configuração
 
-## Agentes especializados
+`dev-agent.yaml` define o projeto, limites de contexto, comando de testes, Git, cabeçalhos e políticas de segurança. O arquivo usado neste repositório é um exemplo funcional. Os campos, valores padrão e limites estão em [docs/configuration.md](docs/configuration.md).
 
-Além de contexto, implementação, testes, revisão, documentação, depuração e Git, `dev-agent task` coordena agentes de requisitos, segurança, banco de dados, contratos de API, qualidade, dependências, desempenho, frontend, observabilidade, release e refatoração. Eles recebem apenas o contexto e o diff selecionados, fazem análises somente de leitura e retornam riscos ou próximos passos. O `DocumentationWriterAgent` pode atualizar `README.md`, `docs/` ou documentação de API quando a implementação tornar isso necessário; ele não altera código nem dependências.
+## API local e Docker
 
-O fluxo também inclui `CodeDocumentationAgent`, que adiciona documentação útil ao código e preserva cabeçalhos existentes; `TestAuthorAgent`, que cria testes de regressão relacionados à alteração; e `BugReproductionAgent`, que transforma relatos de falha em passos verificáveis sem editar arquivos.
+O processo iniciado por `python -m dev_agent.api.app` escuta por padrão em `127.0.0.1:8765`. A API não implementa autenticação nem isolamento multiusuário; não deve ser exposta à rede. O contrato HTTP, modelos de entrada e ciclo de jobs estão em [docs/assistant-backend.md](docs/assistant-backend.md).
 
-## Execução confiável
+Para desenvolvimento com Docker Desktop:
 
-`dev-agent task` cria um plano sem escrever no projeto. Depois da revisão e confirmação explícita, `dev-agent run <id> --confirm` executa a tarefa em uma branch e worktree Git isolados, avançando por uma máquina de estados explícita (descoberta, planejamento, execução, testes, revisão) que grava um checkpoint ao final de cada fase. Use `dev-agent job <id>` para acompanhar fase atual, resultados, diff e caminho do worktree; `dev-agent cancel <id>` solicita a interrupção de uma tarefa em andamento. Se a API local for reiniciada ou a tarefa falhar após pelo menos um checkpoint, o job fica `blocked`/resumível no mesmo worktree; `dev-agent resume <id>` retoma a partir da última fase concluída, sem repetir chamadas ao provider já feitas com sucesso. Depois de integrar ou descartar as alterações, `dev-agent cleanup <id> --confirm` remove o worktree correspondente.
+```powershell
+docker compose up --build api
+docker compose --profile test run --rm tests
+```
 
-`dev-agent doctor` também verifica a prontidão autenticada do Codex. Pela API local, `GET /health/codex` expõe o mesmo estado sem retornar credenciais ou a saída bruta do provider. O contrato completo para a assistente de outro repositório está em [docs/assistant-backend.md](docs/assistant-backend.md).
+O Compose publica o contêiner em `127.0.0.1:8766` no host. Esse contêiner é destinado à API e à suíte de testes; o fluxo que depende do Codex autenticado continua previsto para a instalação local do usuário.
 
-## Desenvolvimento
+## Desenvolvimento e testes
 
 ```powershell
 pytest
@@ -136,4 +140,13 @@ python -m compileall -q src
 python -m dev_agent.api.app
 ```
 
-Os testes usam provider fake; jamais consomem Codex real. A integração de produção com Codex fica exclusivamente em `providers/codex/provider.py` e usa a interface verificada `codex exec`.
+`pytest` procura testes em `tests/`, usa `src` no `pythonpath` e recebe `-q` por padrão. A cobertura exercita configuração, filesystem, políticas, redator, cabeçalhos, catálogo, agentes, orquestração, checkpoints, jobs e API/CLI. Detalhes e limitações de teste estão em [docs/testing.md](docs/testing.md).
+
+## Limitações conhecidas
+
+- Não há autenticação, autorização, TLS ou isolamento multiusuário na API local.
+- Planos, jobs e sessão são persistidos localmente sem criptografia. Os objetivos inseridos pelo usuário podem ser gravados sem redação; não informe segredos em argumentos de CLI, objetivos ou decisões arquiteturais.
+- O log estruturado atual registra a linha de comando do `TerminalTool`. Como o prompt é passado como argumento para `codex exec`, ele pode aparecer no log; trate os logs locais como potencialmente sensíveis.
+- A documentação não identifica um mecanismo de release/publicação, CI, licença, política de suporte ou política de privacidade no repositório.
+- A máquina de estados declara fases adicionais (`DOCUMENTING`, `PREPARING_GIT` e `ROLLED_BACK`), mas o pipeline atual não as executa automaticamente.
+- A retomada é limitada a três tentativas por job e só é possível após um checkpoint, enquanto o worktree estiver registrado e não marcado como removido; o recuperador não confirma a existência do caminho no disco.

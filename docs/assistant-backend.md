@@ -1,83 +1,108 @@
 <!--
-DevAgent
+dev-agent
 Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar o backend local para integração de assistentes externas.
+Data: 31/08/2026
+Objetivo: Documentar o projeto atual de forma abrangente.
 -->
 <!--
-DevAgent
-Autor: Dayvid Santana
-Data: 28/08/2026
-Objetivo: Documentar planejamento, prontidão e jobs isolados dos agents.
+DevAgent-Task: 4826528013919681285
 -->
 
-# Backend para assistente externa
 
-O DevAgent expõe uma integração REST local para o repositório da assistente virtual. A assistente envia uma solicitação identificando o agent desejado, e o backend a encaminha ao `Orchestrator`.
+# API local e backend para assistentes externas
 
-O serviço permanece restrito a `127.0.0.1:8765`. Não o exponha na internet: esta versão não implementa autenticação nem isolamento multiusuário.
+## Escopo e segurança
 
-## Contrato
+A aplicação FastAPI se chama `DevAgent` e tem versão `0.1.0`. Ao executar o módulo `dev_agent.api.app`, ela escuta em `127.0.0.1:8765`. Erros de domínio retornam HTTP 400 no formato `{ "detail": "..." }`; validações de corpo/caminho feitas pelo FastAPI retornam HTTP 422.
 
-Liste os agents invocáveis diretamente:
+Não há autenticação, autorização, TLS ou isolamento multiusuário. A API é um backend local e não deve ser publicada em rede. Caminhos enviados em `cwd` devem levar, diretamente ou por um diretório pai, a um `dev-agent.yaml` válido.
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8765/assistant/agents
-```
+## Endpoints gerais
 
-Envie uma análise de segurança ao agent especializado:
+| Método e rota | Corpo | Resultado |
+|---|---|---|
+| `GET /health` | — | Estado da API e host configurado. |
+| `GET /health/codex?force=false` | — | `CodexReadiness` sanitizado. A consulta fica em cache por até 60 segundos, salvo `force=true`. |
+| `GET /agents` | — | Descritores do catálogo para a API/CLI. |
+| `GET /agents/catalog` | — | Manifests do catálogo declarativo. |
+| `GET /agents/catalog/{agent_id}` | — | Manifest por ID, nome ou alias. |
+| `GET /agents/graph` | — | Mapa de dependências declaradas. |
+| `GET /agents/doctor` | — | Diagnóstico de dependências e entrypoints. |
+| `GET /session` | — | Sessão local atual, ou `null`. |
+| `POST /project/activate` | `{ "cwd": "..." }` | Raiz, nome e resultado do contexto inicial. |
+| `POST /agent/context` | `{ "cwd": "...", "objective": "..." }` | `ContextPacket` e resultado do agente de contexto. |
+| `POST /agent/ask` | igual ao anterior | Resposta de leitura. |
+| `POST /agent/review` | `{ "cwd": "...", "staged": false }` | Revisão do diff atual ou staged. |
+| `POST /agent/test` | `{ "cwd": "..." }` | Resultado da suíte configurada. |
+| `POST /agent/debug` | `{ "cwd": "...", "objective": "..." }` | Diagnóstico baseado em contexto e testes. |
+| `POST /git/commit-plan` | `{ "cwd": "..." }` | Sugestões de commits; não grava commits. |
 
-```powershell
-$body = @{
-  cwd = "C:\Projetos\Faturas"
-  agent = "security"
-  objective = "Avalie autenticação, validação de entrada e exposição de segredos"
-} | ConvertTo-Json
+`POST /agent/task` está marcado como obsoleto e sempre recusa a execução direta. Use o fluxo de planos abaixo.
 
-Invoke-RestMethod http://127.0.0.1:8765/assistant/invocations -Method Post -ContentType "application/json" -Body $body
-```
+## Invocações de leitura para assistentes externas
 
-Os agents de análise aceitos incluem `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `performance`, `frontend`, `observability`, `release`, `refactor`, `documentation`, `bug_reproduction`, `context`, `ask`, `review`, `test`, `debug` e `git`.
+`GET /assistant/agents` informa os agentes invocáveis diretamente.
 
-## Tarefas que alteram código
-
-Não envie `agent: "task"` para `/assistant/invocations`: esse atalho foi bloqueado. Primeiro, crie um plano sem alterar arquivos:
+`POST /assistant/invocations` aceita:
 
 ```json
-POST /assistant/task-plans
-
 {
   "cwd": "C:\\Projetos\\Faturas",
-  "objective": "Adicionar validação de CPF"
+  "agent": "security",
+  "objective": "Avaliar autenticação e exposição de segredos",
+  "staged": false,
+  "confirmed_write": false
 }
 ```
 
-O plano informa arquivos relevantes, a branch-base, riscos e se é necessária uma decisão arquitetural. Se for necessária, registre a decisão humana antes da execução:
+Os campos `agent` e `objective` têm, respectivamente, limite de 80 e 4.000 caracteres. Os nomes aceitos são `ask`, `context`, `review`, `test`, `debug`, `git`, `documentation`, `bug_reproduction` e os especialistas `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `performance`, `frontend`, `observability`, `release` e `refactor`.
 
-```json
-POST /assistant/task-plans/{id}/architecture-approval
+`agent: "task"` aparece na listagem para indicar o fluxo disponível, porém a invocação direta é deliberadamente recusada. `implementation`, agentes de escrita e políticas não são invocáveis por essa rota.
 
-{
-  "decision": "Usar validação no serviço de domínio e manter o contrato atual da API."
-}
-```
+## Planos e jobs de escrita
 
-Depois da confirmação explícita do usuário, inicie o plano:
+1. Crie um plano sem escrever:
 
-```json
-POST /assistant/task-plans/{id}/start
+   ```http
+   POST /assistant/task-plans
+   Content-Type: application/json
 
-{
-  "confirmed_write": true
-}
-```
+   {"cwd":"C:\\Projetos\\Faturas","objective":"Adicionar validação de CPF"}
+   ```
 
-O resultado inicial é um job com estado `queued`. Consulte `GET /assistant/jobs/{id}` para obter `running`, `completed`, `partially_completed`, `failed`, `cancelled` ou `blocked`, a fase atual ou terminal do pipeline, o diff redigido, os resumos redigidos dos agents e o caminho do worktree. Para solicitar interrupção, use `POST /assistant/jobs/{id}/cancel`.
+2. Se `architecture_decision_required` for verdadeiro, registre uma decisão humana de 10 a 1.000 caracteres:
 
-Se a API local for reiniciada com o job em andamento, ou se ele falhar depois de concluir ao menos uma fase, o job vira `blocked` (em vez de `failed`) e mantém o worktree. Use `POST /assistant/jobs/{id}/resume` para retomar a partir da última fase concluída, no mesmo worktree/branch, sem repetir chamadas ao provider já feitas com sucesso. Um job cancelado explicitamente nunca fica retomável. Veja [docs/orchestration.md](orchestration.md) para os detalhes da máquina de estados.
+   ```http
+   POST /assistant/task-plans/{id}/architecture-approval
 
-Cada job cria uma branch `dev-agent/{id}` em um worktree separado. O checkout principal não é alterado. O projeto precisa estar limpo antes da execução; assim, mudanças locais preexistentes não são perdidas nem misturadas à tarefa. Após revisar ou integrar as mudanças, remova o worktree apenas com confirmação explícita via `POST /assistant/jobs/{id}/cleanup` e `{ "confirmed_cleanup": true }`; essa operação descarta alterações não commitadas naquele worktree.
+   {"decision":"Manter o contrato atual e validar no serviço de domínio."}
+   ```
 
-## Prontidão do Codex
+3. Inicie a tarefa de fundo explicitamente:
 
-Use `GET /health/codex` para verificar a CLI, a autenticação e uma chamada mínima em modo somente leitura. O resultado é armazenado por até 60 segundos e não expõe credenciais nem a saída bruta do Codex. No terminal, `dev-agent doctor` apresenta o mesmo diagnóstico.
+   ```http
+   POST /assistant/task-plans/{id}/start
+
+   {"confirmed_write":true}
+   ```
+
+   Antes de enfileirar o job, essa rota executa a verificação de prontidão do Codex na raiz do projeto. Se ela falhar, a rota devolve erro de domínio e nenhum job é criado.
+
+4. Consulte ou controle o job:
+
+   | Método e rota | Efeito |
+   |---|---|
+   | `GET /assistant/jobs/{id}` | Devolve o job, fase, resultados, diff redigido, branch e worktree. |
+   | `POST /assistant/jobs/{id}/cancel` | Solicita cancelamento cooperativo. |
+| `POST /assistant/jobs/{id}/resume` | Retoma um job bloqueado com checkpoint e worktree registrado que ainda não foi marcado como removido. |
+   | `POST /assistant/jobs/{id}/cleanup` com `{ "confirmed_cleanup": true }` | Remove worktree de job finalizado, bloqueado ou cancelado. |
+
+Os status persistidos são `queued`, `running`, `completed`, `partially_completed`, `failed`, `cancelled` e `blocked`. Consulte [orchestration.md](orchestration.md) para as regras de worktree, checkpoint e retomada.
+
+## Formatos relevantes de resposta
+
+`SubAgentResult` contém `agent`, `summary`, `files_read`, `files_changed`, `tests_executed`, `warnings`, `architecture_decision_required` e `next_actions`.
+
+`TaskPlan` contém ID, raiz/nome do projeto, objetivo, branch-base, arquivos relevantes, avisos, necessidade/aprovação/decisão arquitetural, confirmação requerida e data de criação. `AgentJob` acrescenta status, fase, branch, worktree, resultados, diff, erro sanitizado, dados de cancelamento/retomada e checkpoint.
+
+Não há documentação OpenAPI versionada, exemplos para todas as respostas, paginação, nem endpoints para listar ou recuperar um plano isoladamente. Como a aplicação usa a configuração padrão do FastAPI, o esquema e a interface interativa usuais ficam expostos em `/openapi.json` e `/docs` quando o servidor está em execução; esse contrato não é versionado nem verificado diretamente pela suíte do projeto.
