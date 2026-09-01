@@ -30,6 +30,10 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Expor a análise de padrões de projeto sob demanda pela CLI.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Adicionar e revisar cabeçalhos ausentes mediante confirmação explícita.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -78,6 +82,7 @@ def commands() -> None:
         "[cyan]task[/cyan]     Cria um plano de tarefa para aprovação.\n"
         "[cyan]document[/cyan] Agent de comentários e cabeçalhos: documenta código e aplica o cabeçalho padrão.\n"
         "[cyan]document-project[/cyan] Cria documentação abrangente do projeto.\n"
+        "[cyan]headers[/cyan] Lista cabeçalhos ausentes; use --apply --confirm para inseri-los.\n"
         "[cyan]patterns[/cyan] Avalia padrões de projeto e seus trade-offs.\n"
         "[cyan]run[/cyan]      Inicia um plano aprovado em worktree isolado.\n"
         "[cyan]job[/cyan]      Consulta o status de uma tarefa em background.\n"
@@ -93,6 +98,7 @@ def commands() -> None:
         "dev-agent ask \"Explique o fluxo de cadastro\"\n"
         "dev-agent task \"Adicione validação de CPF\"\n"
         "dev-agent document src/modulo.py\n"
+        "dev-agent headers --apply --confirm\n"
         "dev-agent patterns \"Avalie a camada de providers\"\n"
         "dev-agent run <id-do-plano> --confirm\n"
         "dev-agent review --staged\n\n"
@@ -155,6 +161,27 @@ def document_project() -> None:
     plan = _api("POST", "/assistant/task-plans", _project_payload(objective="Documentar o projeto atual de forma abrangente."))
     print(Pretty(plan))
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
+
+@app.command("headers")
+def cabecalhos(
+    apply: bool = typer.Option(False, "--apply", help="Insere os cabeçalhos ausentes."),
+    confirm: bool = typer.Option(False, "--confirm", help="Confirma a alteração dos arquivos listados."),
+    check: bool = typer.Option(False, "--check", help="Lista os arquivos elegíveis sem alterar nada."),
+    objective: str = typer.Option("Adicionar cabeçalho padrão.", "--objective", help="Objetivo registrado nos cabeçalhos."),
+) -> None:
+    """Lista ou insere cabeçalhos ausentes nos arquivos elegíveis."""
+    if apply and check:
+        raise typer.BadParameter("Use apenas uma das opções: --check ou --apply.")
+    if confirm and not apply:
+        raise typer.BadParameter("--confirm exige --apply.")
+    if apply and not confirm:
+        raise typer.BadParameter("Use --apply --confirm para inserir cabeçalhos.")
+    result = _api(
+        "POST",
+        "/headers",
+        _project_payload(confirmed_apply=apply, objective=objective),
+    )
+    print(Pretty(result))
 
 @app.command()
 def patterns(objective: str) -> None:

@@ -14,6 +14,10 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Formalizar prontidão, planos e tarefas assíncronas dos agents.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Estruturar o resultado da verificação e aplicação de cabeçalhos.
 
 from datetime import datetime
 from enum import Enum
@@ -119,6 +123,11 @@ class CommitSuggestion(BaseModel):
     message: str
     files: list[str]
     rationale: str
+
+
+class HeaderBatchResult(BaseModel):
+    candidates: list[str] = Field(default_factory=list)
+    applied: list[str] = Field(default_factory=list)
 
 
 class CodexReadiness(BaseModel):

@@ -16,6 +16,10 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Expor a prontidão autenticada do Codex pela API local.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Expor a verificação e aplicação confirmada de cabeçalhos ausentes.
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -27,6 +31,7 @@ from dev_agent.api.assistant_backend import router as assistant_backend_router
 from dev_agent.config.loader import discover_project
 from dev_agent.errors import DevAgentError, UnsafeCommandError
 from dev_agent.memory.session_store import SessionStore
+from dev_agent.core.models import HeaderBatchResult
 from dev_agent.core.orchestrator import Orchestrator
 from dev_agent.providers.codex.provider import CodexProvider
 
@@ -36,6 +41,9 @@ app.include_router(assistant_backend_router)
 class ProjectRequest(BaseModel): cwd: Path
 class ObjectiveRequest(ProjectRequest): objective: str
 class ReviewRequest(ProjectRequest): staged: bool = False
+class HeadersRequest(ProjectRequest):
+    confirmed_apply: bool = False
+    objective: str = "Adicionar cabeçalho padrão."
 
 def orchestrator(cwd: Path) -> Orchestrator:
     return Orchestrator(discover_project(cwd), CodexProvider())
@@ -101,6 +109,13 @@ def test(request: ProjectRequest): return orchestrator(request.cwd).test().model
 def debug(request: ObjectiveRequest): return orchestrator(request.cwd).debug(request.objective).model_dump(mode="json")
 @app.post("/git/commit-plan")
 def commit_plan(request: ProjectRequest): return [item.model_dump() for item in orchestrator(request.cwd).commit_plan()]
+
+@app.post("/headers", response_model=HeaderBatchResult)
+def headers(request: HeadersRequest) -> HeaderBatchResult:
+    service = orchestrator(request.cwd)
+    if request.confirmed_apply:
+        return service.aplicarCabecalhosAusentes(request.objective)
+    return service.listarCabecalhosAusentes()
 
 if __name__ == "__main__":
     import uvicorn

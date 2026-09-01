@@ -36,6 +36,7 @@ Não há autenticação, autorização, TLS ou isolamento multiusuário. A API �
 | `POST /agent/test` | `{ "cwd": "..." }` | Resultado da suíte configurada. |
 | `POST /agent/debug` | `{ "cwd": "...", "objective": "..." }` | Diagnóstico baseado em contexto e testes. |
 | `POST /git/commit-plan` | `{ "cwd": "..." }` | Sugestões de commits; não grava commits. |
+| `POST /headers` | `{ "cwd": "...", "confirmed_apply": false }` | Lista arquivos elegíveis sem cabeçalho; aplica apenas com confirmação. |
 
 `POST /agent/task` está marcado como obsoleto e sempre recusa a execução direta. Use o fluxo de planos abaixo.
 

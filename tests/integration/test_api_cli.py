@@ -26,6 +26,10 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Cobrir a invocação do agente de padrões de projeto pela CLI.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a verificação e inserção confirmada de cabeçalhos ausentes.
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -83,6 +87,28 @@ def test_assistant_backend_lists_direct_agents():
 
     assert response.status_code == 200
     assert {"ask", "security", "design_patterns", "task"} <= {item["name"] for item in response.json()}
+
+
+def test_headers_endpoint_lists_and_applies_only_eligible_missing_headers(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    source = tmp_path / "src" / "service.py"
+    source.parent.mkdir()
+    source.write_text("def run(): pass\n", encoding="utf-8")
+    (tmp_path / "src" / "legacy.py").write_text("# Cabeçalho legado\nvalue = 1\n", encoding="utf-8")
+    (tmp_path / "src" / "package.json").write_text("{}\n", encoding="utf-8")
+    client = TestClient(app)
+
+    check = client.post("/headers", json={"cwd": str(tmp_path)})
+    assert check.status_code == 200
+    assert check.json() == {"candidates": ["src/service.py"], "applied": []}
+
+    apply = client.post(
+        "/headers",
+        json={"cwd": str(tmp_path), "confirmed_apply": True, "objective": "Adicionar cabeçalho padrão."},
+    )
+    assert apply.status_code == 200
+    assert apply.json() == {"candidates": ["src/service.py"], "applied": ["src/service.py"]}
+    assert source.read_text(encoding="utf-8").startswith("# Demo\n# Autor: Dayvid Santana")
 
 
 def test_assistant_backend_requires_confirmation_for_tasks(tmp_path: Path):
@@ -180,6 +206,7 @@ def test_commands_lists_the_main_cli_commands():
     assert "task" in result.output
     assert "document" in result.output
     assert "Agent de comentários e cabeçalhos" in result.output
+    assert "headers" in result.output
     assert "patterns" in result.output
     assert "review --staged" in result.output
 
@@ -203,6 +230,26 @@ def test_document_is_listed_in_cli_help():
     result = runner.invoke(cli_app, ["--help"])
     assert result.exit_code == 0
     assert "document" in result.output
+
+
+def test_headers_command_requires_confirmation_and_calls_endpoint(monkeypatch):
+    result = runner.invoke(cli_app, ["headers", "--apply"])
+    assert result.exit_code != 0
+    assert "--apply --confirm" in result.output
+
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"candidates": ["src/service.py"], "applied": ["src/service.py"]}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["headers", "--apply", "--confirm"])
+
+    assert result.exit_code == 0
+    assert recorded["method"] == "POST"
+    assert recorded["endpoint"] == "/headers"
+    assert recorded["payload"]["confirmed_apply"]
 
 
 def test_patterns_command_invokes_design_patterns_agent(monkeypatch):

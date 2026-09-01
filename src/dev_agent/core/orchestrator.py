@@ -34,6 +34,10 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Executar mudanças estruturais somente após aprovação registrada.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Aplicar cabeçalhos ausentes sob confirmação explícita pela API local.
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -44,14 +48,16 @@ from dev_agent.agents.git_agent import GitAgent
 from dev_agent.agents.registry import AgentRegistry
 from dev_agent.agents.test_agent import TestAgent
 from dev_agent.config.loader import load_config
-from dev_agent.core.models import AgentDescriptor, Checkpoint, ContextPacket, SubAgentResult, TaskStatus
+from dev_agent.core.models import AgentDescriptor, Checkpoint, ContextPacket, HeaderBatchResult, SubAgentResult, TaskStatus
 from dev_agent.core.state_machine import TaskStateMachine
+from dev_agent.errors import PathOutsideProjectError
 from dev_agent.headers.service import HeaderService
 from dev_agent.memory.session_store import ProjectSession, SessionStore
 from dev_agent.providers.base import LLMProvider
 from dev_agent.security.architecture_guard import ArchitectureGuard
 from dev_agent.security.redaction import SensitiveDataRedactor
 from dev_agent.tools.git import GitTool
+from dev_agent.tools.search import FileSearchTool
 from dev_agent.tools.terminal import TerminalTool
 from dev_agent.tools.tests import TestTool
 from dev_agent.logging import event
@@ -225,6 +231,26 @@ class Orchestrator:
 
     def commit_plan(self): return GitAgent(self.root, self.provider).commit_plan()
 
+    def listarCabecalhosAusentes(self) -> HeaderBatchResult:
+        return HeaderBatchResult(candidates=self._arquivosSemCabecalho())
+
+    def aplicarCabecalhosAusentes(self, objetivo: str) -> HeaderBatchResult:
+        with self._write_lock:
+            candidatos = self._arquivosSemCabecalho()
+            servico = HeaderService(self.config)
+            aplicados: list[str] = []
+            for nome in candidatos:
+                try:
+                    conteudo = self.context_agent.files.read_text(nome).content
+                except (OSError, PathOutsideProjectError, UnicodeDecodeError):
+                    continue
+                atualizado = servico.apply(Path(nome), conteudo, objetivo[:100], "headers", existing=conteudo)
+                if atualizado == conteudo:
+                    continue
+                self.context_agent.files.write_text(nome, atualizado)
+                aplicados.append(nome)
+            return HeaderBatchResult(candidates=candidatos, applied=aplicados)
+
     def _terminal(self) -> TerminalTool:
         return TerminalTool(self.root, cancel_event=getattr(self.provider, "cancel_event", None))
 
@@ -259,6 +285,28 @@ class Orchestrator:
                 continue
             updated = service.apply(path, content, objective[:100], task_key, existing=content)
             if updated != content: self.context_agent.files.write_text(name, updated)
+
+    def _arquivosSemCabecalho(self) -> list[str]:
+        if not self.config.headers.enabled:
+            return []
+        busca = FileSearchTool(
+            self.root,
+            [*self.config.context.exclude, *self.config.security.sensitive_patterns],
+            self.config.context.include,
+        )
+        servico = HeaderService(self.config)
+        candidatos: list[str] = []
+        for caminho in self.root.rglob("*"):
+            if not caminho.is_file() or not busca.allows(caminho) or not servico.supports(caminho):
+                continue
+            nome = caminho.relative_to(self.root).as_posix()
+            try:
+                conteudo = self.context_agent.files.read_text(nome).content
+            except (OSError, PathOutsideProjectError, UnicodeDecodeError):
+                continue
+            if not servico.has_header(Path(nome), conteudo):
+                candidatos.append(nome)
+        return candidatos
 
     def _remember(self, objective: str, packet: ContextPacket, result: SubAgentResult) -> None:
         session = self.store.load()
