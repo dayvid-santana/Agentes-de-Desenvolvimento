@@ -76,8 +76,9 @@ Uma solicitação com termos estruturais, como autenticação, migração de ban
 | `context [objetivo]` | Mostra o pacote de contexto selecionado. |
 | `ask <pergunta>` | Consulta o provider em modo somente leitura. |
 | `task <objetivo>` / `run <id> --confirm` | Cria plano e inicia escrita isolada. |
-| `document <caminho>` | Cria um plano para documentação de código. |
+| `document <caminho>` | Aciona o agent de comentários e cabeçalhos: cria um plano para documentar o código e aplicar o cabeçalho padrão. |
 | `document-project` | Cria um plano com objetivo de documentação abrangente. |
+| `patterns <objetivo>` | Analisa padrões de projeto e seus trade-offs, sem alterar arquivos. |
 | `job`, `cancel`, `resume`, `cleanup` | Consultam e controlam jobs assíncronos. |
 | `review [--staged]`, `test`, `debug <mensagem>` | Revisam diff, executam testes configurados ou investigam uma falha. |
 | `commit` | Sugere agrupamentos de Conventional Commits; não cria commit nem faz push. |
@@ -122,6 +123,16 @@ O `Orchestrator` serializa as fases que podem escrever por meio de um lock de pr
 ## API local e Docker
 
 O processo iniciado por `python -m dev_agent.api.app` escuta por padrão em `127.0.0.1:8765`. A API não implementa autenticação nem isolamento multiusuário; não deve ser exposta à rede. O contrato HTTP, modelos de entrada e ciclo de jobs estão em [docs/assistant-backend.md](docs/assistant-backend.md).
+
+Após alterar um agent ou o catálogo `agents/catalog.yaml`, reinicie a API local para que as alterações sejam carregadas:
+
+```powershell
+dev-agent stop
+dev-agent start
+dev-agent status
+```
+
+A API não usa recarga automática; `status` deve informar `ativo` após o reinício.
 
 Para desenvolvimento com Docker Desktop:
 

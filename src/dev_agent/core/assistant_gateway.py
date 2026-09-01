@@ -9,11 +9,16 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Bloquear escrita direta fora do fluxo aprovado e isolado.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Expor a análise de padrões de projeto para assistentes externas.
 
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
 from dev_agent.agents.database_agent import DatabaseAgent
 from dev_agent.agents.dependency_agent import DependencyAgent
+from dev_agent.agents.design_patterns_agent import DesignPatternsAgent
 from dev_agent.agents.documentation_agent import DocumentationAgent
 from dev_agent.agents.frontend_agent import FrontendAgent
 from dev_agent.agents.observability_agent import ObservabilityAgent
@@ -38,6 +43,7 @@ class AssistantGateway:
         "api_contract": ApiContractAgent,
         "quality": QualityAgent,
         "dependency": DependencyAgent,
+        "design_patterns": DesignPatternsAgent,
         "performance": PerformanceAgent,
         "frontend": FrontendAgent,
         "observability": ObservabilityAgent,

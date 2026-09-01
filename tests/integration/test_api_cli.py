@@ -22,6 +22,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Cobrir o planejamento seguro e assíncrono de tarefas externas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a invocação do agente de padrões de projeto pela CLI.
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,7 +82,7 @@ def test_assistant_backend_lists_direct_agents():
     response = client.get("/assistant/agents")
 
     assert response.status_code == 200
-    assert {"ask", "security", "task"} <= {item["name"] for item in response.json()}
+    assert {"ask", "security", "design_patterns", "task"} <= {item["name"] for item in response.json()}
 
 
 def test_assistant_backend_requires_confirmation_for_tasks(tmp_path: Path):
@@ -175,6 +179,8 @@ def test_commands_lists_the_main_cli_commands():
     assert "init" in result.output
     assert "task" in result.output
     assert "document" in result.output
+    assert "Agent de comentários e cabeçalhos" in result.output
+    assert "patterns" in result.output
     assert "review --staged" in result.output
 
 
@@ -197,6 +203,22 @@ def test_document_is_listed_in_cli_help():
     result = runner.invoke(cli_app, ["--help"])
     assert result.exit_code == 0
     assert "document" in result.output
+
+
+def test_patterns_command_invokes_design_patterns_agent(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"results": []}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["patterns", "Avaliar a camada de providers"])
+
+    assert result.exit_code == 0
+    assert recorded["method"] == "POST"
+    assert recorded["endpoint"] == "/assistant/invocations"
+    assert recorded["payload"]["agent"] == "design_patterns"
 
 
 def test_document_project_creates_a_project_documentation_plan(monkeypatch):

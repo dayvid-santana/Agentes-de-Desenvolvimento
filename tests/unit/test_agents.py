@@ -16,6 +16,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Importar e cobrir cada agente em módulo próprio.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a análise somente leitura de padrões de projeto.
 from pathlib import Path
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
@@ -24,6 +28,7 @@ from dev_agent.agents.context_agent import ContextAgent
 from dev_agent.agents.database_agent import DatabaseAgent
 from dev_agent.agents.debug_agent import DebugAgent
 from dev_agent.agents.dependency_agent import DependencyAgent
+from dev_agent.agents.design_patterns_agent import DesignPatternsAgent
 from dev_agent.agents.documentation_writer_agent import DocumentationWriterAgent
 from dev_agent.agents.frontend_agent import FrontendAgent
 from dev_agent.agents.observability_agent import ObservabilityAgent
@@ -115,7 +120,7 @@ def test_review_detects_literal_secret(tmp_path: Path):
 
 def test_specialist_agents_use_read_only_provider(tmp_path: Path):
     packet = ContextPacket(project_name="Demo", project_root=tmp_path, objective="Adicionar tela", git_diff="+ def view(): pass")
-    agents = [RequirementsAgent, SecurityAgent, DatabaseAgent, ApiContractAgent, QualityAgent, DependencyAgent, PerformanceAgent, FrontendAgent, ObservabilityAgent, ReleaseAgent, RefactorAgent]
+    agents = [RequirementsAgent, SecurityAgent, DatabaseAgent, ApiContractAgent, QualityAgent, DependencyAgent, DesignPatternsAgent, PerformanceAgent, FrontendAgent, ObservabilityAgent, ReleaseAgent, RefactorAgent]
     for agent_type in agents:
         result = agent_type(FakeCodexProvider()).run(packet)
         assert result.agent and result.summary == "Resumo fake"

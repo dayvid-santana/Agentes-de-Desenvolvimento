@@ -4,6 +4,10 @@ from __future__ import annotations
 
 # DevAgent
 # Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Corrigir diff_paths para capturar alterações staged, não só não staged.
+# DevAgent
+# Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Isolar tarefas aprovadas em worktrees Git dedicados.
 
@@ -34,8 +38,8 @@ class GitTool:
         return self._git("diff")
 
     def diff_paths(self, paths: list[str]) -> str:
-        """Diff de caminhos específicos já rastreados (não inclui arquivos novos)."""
-        return self._git("diff", "--", *paths) if paths else ""
+        """Diff de caminhos já rastreados, contra HEAD (inclui alterações staged e não staged)."""
+        return self._git("diff", "HEAD", "--", *paths) if paths else ""
 
     def log(self, limit: int = 10) -> str:
         return self._git("log", f"-{limit}", "--oneline")

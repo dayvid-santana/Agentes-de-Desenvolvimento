@@ -2,6 +2,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Cobrir o gateway de integração para assistentes externas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a exposição do agente de padrões de projeto no gateway.
 from pathlib import Path
 
 import pytest
@@ -37,7 +41,7 @@ class FakeOrchestrator:
 def test_gateway_exposes_only_direct_agents():
     names = {item.name for item in AssistantGateway.available_agents()}
 
-    assert {"ask", "security", "task", "review"} <= names
+    assert {"ask", "security", "design_patterns", "task", "review"} <= names
     assert "implementation" not in names
 
 
@@ -45,6 +49,14 @@ def test_gateway_runs_a_read_only_specialist():
     results, suggestions = AssistantGateway(FakeOrchestrator()).invoke("security", "Avaliar autenticação")
 
     assert results[0].agent == "security"
+    assert results[0].summary == "Análise recebida"
+    assert suggestions == []
+
+
+def test_gateway_runs_design_patterns_agent():
+    results, suggestions = AssistantGateway(FakeOrchestrator()).invoke("design_patterns", "Avaliar a arquitetura")
+
+    assert results[0].agent == "design_patterns"
     assert results[0].summary == "Análise recebida"
     assert suggestions == []
 

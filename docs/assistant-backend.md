@@ -55,7 +55,7 @@ Não há autenticação, autorização, TLS ou isolamento multiusuário. A API �
 }
 ```
 
-Os campos `agent` e `objective` têm, respectivamente, limite de 80 e 4.000 caracteres. Os nomes aceitos são `ask`, `context`, `review`, `test`, `debug`, `git`, `documentation`, `bug_reproduction` e os especialistas `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `performance`, `frontend`, `observability`, `release` e `refactor`.
+Os campos `agent` e `objective` têm, respectivamente, limite de 80 e 4.000 caracteres. Os nomes aceitos são `ask`, `context`, `review`, `test`, `debug`, `git`, `documentation`, `bug_reproduction` e os especialistas `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `design_patterns`, `performance`, `frontend`, `observability`, `release` e `refactor`.
 
 `agent: "task"` aparece na listagem para indicar o fluxo disponível, porém a invocação direta é deliberadamente recusada. `implementation`, agentes de escrita e políticas não são invocáveis por essa rota.
 

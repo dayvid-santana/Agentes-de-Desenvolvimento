@@ -1,7 +1,7 @@
 # dev-agent
 # Autor: Dayvid Santana
 # Criado em: 28/08/2026
-# Editado em: 28/08/2026
+# Editado em: 01/09/2026
 # Objetivo: Catálogo único dos Agents do DevAgent, fonte de dados para AgentRegistry.
 #
 # Este arquivo é a fonte única de verdade sobre os Agents disponíveis.
@@ -217,6 +217,19 @@ agents:
     kind: subagent
     tools: [provider]
     invocation: 'dev-agent task "<objetivo>"'
+    legacy: false
+    status: active
+
+  - id: design_patterns
+    name: design_patterns
+    aliases: [patterns]
+    module: dev_agent.agents.design_patterns_agent.agent
+    class_name: DesignPatternsAgent
+    purpose: Analisa padrões de projeto e trade-offs com base no contexto selecionado.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    invocation: 'dev-agent patterns "<objetivo>"'
     legacy: false
     status: active
 

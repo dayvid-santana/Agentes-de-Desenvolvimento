@@ -22,6 +22,14 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Diagnosticar a prontidão autenticada do Codex no doctor.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Identificar o agent de comentários e cabeçalhos na lista de comandos.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Expor a análise de padrões de projeto sob demanda pela CLI.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -68,8 +76,9 @@ def commands() -> None:
         "[cyan]context[/cyan]  Monta o contexto do projeto.\n"
         "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
         "[cyan]task[/cyan]     Cria um plano de tarefa para aprovação.\n"
-        "[cyan]document[/cyan] Documenta código e aplica cabeçalhos pelo fluxo aprovado.\n"
+        "[cyan]document[/cyan] Agent de comentários e cabeçalhos: documenta código e aplica o cabeçalho padrão.\n"
         "[cyan]document-project[/cyan] Cria documentação abrangente do projeto.\n"
+        "[cyan]patterns[/cyan] Avalia padrões de projeto e seus trade-offs.\n"
         "[cyan]run[/cyan]      Inicia um plano aprovado em worktree isolado.\n"
         "[cyan]job[/cyan]      Consulta o status de uma tarefa em background.\n"
         "[cyan]cancel[/cyan]   Solicita o cancelamento de uma tarefa em execução.\n"
@@ -84,6 +93,7 @@ def commands() -> None:
         "dev-agent ask \"Explique o fluxo de cadastro\"\n"
         "dev-agent task \"Adicione validação de CPF\"\n"
         "dev-agent document src/modulo.py\n"
+        "dev-agent patterns \"Avalie a camada de providers\"\n"
         "dev-agent run <id-do-plano> --confirm\n"
         "dev-agent review --staged\n\n"
         "Use [cyan]dev-agent <comando> --help[/cyan] para os detalhes de cada comando."
@@ -145,6 +155,13 @@ def document_project() -> None:
     plan = _api("POST", "/assistant/task-plans", _project_payload(objective="Documentar o projeto atual de forma abrangente."))
     print(Pretty(plan))
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
+
+@app.command()
+def patterns(objective: str) -> None:
+    """Analisa padrões de projeto sem alterar arquivos."""
+    result = _api("POST", "/assistant/invocations", _project_payload(agent="design_patterns", objective=objective))
+    print(Pretty(result))
+
 @app.command()
 def run(plan_id: str, confirm: bool = typer.Option(False, "--confirm", help="Confirma a escrita no worktree isolado.")) -> None:
     """Inicia um plano aprovado em background."""
