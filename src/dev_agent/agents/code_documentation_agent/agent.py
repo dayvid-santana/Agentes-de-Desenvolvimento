@@ -7,6 +7,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Aplicar a Skill reutilizável de documentação de código.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Exigir documentação de classes, funções e declarações de tipos selecionadas.
 from __future__ import annotations
 
 from dev_agent.agents.base import SubAgent
@@ -16,7 +20,7 @@ from dev_agent.skills.registry import get_skill
 
 
 class CodeDocumentationAgent(SubAgent):
-    """Adiciona documentação útil somente aos arquivos de código selecionados."""
+    """Documenta todas as declarações de código presentes nos arquivos selecionados."""
 
     name = "code_documentation"
     _code_suffixes = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".cs", ".c", ".cpp", ".h"}
@@ -33,10 +37,12 @@ class CodeDocumentationAgent(SubAgent):
         header_skill = get_skill("code-header")
         response = self.provider.run(
             f"""Você é o CodeDocumentationAgent do DevAgent. Trabalhe somente em {packet.project_root}.
-Documente apenas os arquivos de código selecionados e somente quando isso esclarecer regras de negócio,
-efeitos colaterais, contratos ou decisões não óbvias. Prefira docstrings e comentários curtos; não descreva
-o óbvio, não refatore e não altere comportamento. Não modifique nenhum cabeçalho existente. Para arquivos
-novos sem cabeçalho, o orquestrador aplicará o padrão do projeto após sua execução.
+Documente todas as classes, funções, métodos e declarações de tipos dos arquivos de código selecionados,
+incluindo elementos privados. Para Python, use docstrings; para JavaScript, TypeScript e JSX/TSX, use JSDoc;
+para as demais linguagens, use o formato idiomático de comentário de documentação. Cada descrição deve indicar
+a responsabilidade, entradas, saídas, efeitos colaterais ou invariantes quando aplicável. Comentários internos
+só devem ser usados para decisões não óbvias. Não refatore, não altere comportamento e não modifique nenhum
+cabeçalho existente. Para arquivos novos sem cabeçalho, o orquestrador aplicará o padrão do projeto após sua execução.
 
 Skills aplicadas:
 code-documentation: {documentation_skill.instructions}

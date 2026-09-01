@@ -29,7 +29,15 @@
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 01/09/2026
-# Objetivo: Cobrir a verificação e inserção confirmada de cabeçalhos ausentes.
+# Objetivo: Cobrir propósitos gerados e a correção de cabeçalhos genéricos.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a invocação da orientação de modelagem de código pela CLI.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir o objetivo de documentação completa enviado pela CLI.
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,29 +94,42 @@ def test_assistant_backend_lists_direct_agents():
     response = client.get("/assistant/agents")
 
     assert response.status_code == 200
-    assert {"ask", "security", "design_patterns", "task"} <= {item["name"] for item in response.json()}
+    assert {"ask", "code_modeling", "security", "design_patterns", "task"} <= {item["name"] for item in response.json()}
 
 
-def test_headers_endpoint_lists_and_applies_only_eligible_missing_headers(tmp_path: Path):
+def test_headers_endpoint_plans_and_repairs_only_eligible_missing_headers(tmp_path: Path, monkeypatch):
     (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
     source = tmp_path / "src" / "service.py"
     source.parent.mkdir()
-    source.write_text("def run(): pass\n", encoding="utf-8")
+    source.write_text(
+        "# Demo\n# Autor: Dayvid Santana\n# Data: 01/09/2026\n# Objetivo: Adicionar cabeçalho padrão.\n# DevAgent-Task: headers\n\ndef run(): pass\n",
+        encoding="utf-8",
+    )
     (tmp_path / "src" / "legacy.py").write_text("# Cabeçalho legado\nvalue = 1\n", encoding="utf-8")
     (tmp_path / "src" / "package.json").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "dev_agent.core.orchestrator.HeaderPurposeService.gerarPropositos",
+        lambda self, contents, project_root: {name: "Executa a rotina principal do serviço." for name in contents},
+    )
     client = TestClient(app)
 
     check = client.post("/headers", json={"cwd": str(tmp_path)})
     assert check.status_code == 200
-    assert check.json() == {"candidates": ["src/service.py"], "applied": []}
+    assert check.json() == {"candidates": ["src/service.py"], "purposes": {}, "applied": []}
+
+    plan = client.post("/headers", json={"cwd": str(tmp_path), "suggest_purposes": True})
+    assert plan.status_code == 200
+    assert plan.json()["purposes"] == {"src/service.py": "Executa a rotina principal do serviço."}
 
     apply = client.post(
         "/headers",
-        json={"cwd": str(tmp_path), "confirmed_apply": True, "objective": "Adicionar cabeçalho padrão."},
+        json={"cwd": str(tmp_path), "confirmed_apply": True},
     )
     assert apply.status_code == 200
-    assert apply.json() == {"candidates": ["src/service.py"], "applied": ["src/service.py"]}
-    assert source.read_text(encoding="utf-8").startswith("# Demo\n# Autor: Dayvid Santana")
+    assert apply.json()["applied"] == ["src/service.py"]
+    content = source.read_text(encoding="utf-8")
+    assert "Objetivo: Adicionar cabeçalho padrão." not in content
+    assert "Objetivo: Executa a rotina principal do serviço." in content
 
 
 def test_assistant_backend_requires_confirmation_for_tasks(tmp_path: Path):
@@ -205,9 +226,10 @@ def test_commands_lists_the_main_cli_commands():
     assert "init" in result.output
     assert "task" in result.output
     assert "document" in result.output
-    assert "Agent de comentários e cabeçalhos" in result.output
+    assert "Documenta classes, funções e tipos" in result.output
     assert "headers" in result.output
     assert "patterns" in result.output
+    assert "model" in result.output
     assert "review --staged" in result.output
 
 
@@ -224,6 +246,7 @@ def test_document_command_creates_a_safe_documentation_plan(monkeypatch):
     assert recorded["method"] == "POST"
     assert recorded["endpoint"] == "/assistant/task-plans"
     assert "src/modulo.py" in recorded["payload"]["objective"]
+    assert "classes, funções, métodos e tipos" in recorded["payload"]["objective"]
 
 
 def test_document_is_listed_in_cli_help():
@@ -252,6 +275,20 @@ def test_headers_command_requires_confirmation_and_calls_endpoint(monkeypatch):
     assert recorded["payload"]["confirmed_apply"]
 
 
+def test_headers_plan_command_requests_file_purposes(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"candidates": ["src/service.py"], "purposes": {"src/service.py": "Executa o serviço."}}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["headers", "--plan"])
+
+    assert result.exit_code == 0
+    assert recorded["payload"]["suggest_purposes"]
+
+
 def test_patterns_command_invokes_design_patterns_agent(monkeypatch):
     recorded: dict[str, object] = {}
 
@@ -266,6 +303,22 @@ def test_patterns_command_invokes_design_patterns_agent(monkeypatch):
     assert recorded["method"] == "POST"
     assert recorded["endpoint"] == "/assistant/invocations"
     assert recorded["payload"]["agent"] == "design_patterns"
+
+
+def test_model_command_invokes_code_modeling_agent(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"results": []}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["model", "Modelar o fluxo de faturas"])
+
+    assert result.exit_code == 0
+    assert recorded["method"] == "POST"
+    assert recorded["endpoint"] == "/assistant/invocations"
+    assert recorded["payload"]["agent"] == "code_modeling"
 
 
 def test_document_project_creates_a_project_documentation_plan(monkeypatch):

@@ -20,10 +20,19 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Cobrir a análise somente leitura de padrões de projeto.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a orientação de modelagem de código para reutilização externa.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a exigência de documentação de todas as declarações selecionadas.
 from pathlib import Path
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
 from dev_agent.agents.code_documentation_agent import CodeDocumentationAgent
+from dev_agent.agents.code_modeling_agent import CodeModelingAgent
 from dev_agent.agents.context_agent import ContextAgent
 from dev_agent.agents.database_agent import DatabaseAgent
 from dev_agent.agents.debug_agent import DebugAgent
@@ -120,10 +129,29 @@ def test_review_detects_literal_secret(tmp_path: Path):
 
 def test_specialist_agents_use_read_only_provider(tmp_path: Path):
     packet = ContextPacket(project_name="Demo", project_root=tmp_path, objective="Adicionar tela", git_diff="+ def view(): pass")
-    agents = [RequirementsAgent, SecurityAgent, DatabaseAgent, ApiContractAgent, QualityAgent, DependencyAgent, DesignPatternsAgent, PerformanceAgent, FrontendAgent, ObservabilityAgent, ReleaseAgent, RefactorAgent]
+    agents = [RequirementsAgent, CodeModelingAgent, SecurityAgent, DatabaseAgent, ApiContractAgent, QualityAgent, DependencyAgent, DesignPatternsAgent, PerformanceAgent, FrontendAgent, ObservabilityAgent, ReleaseAgent, RefactorAgent]
     for agent_type in agents:
         result = agent_type(FakeCodexProvider()).run(packet)
         assert result.agent and result.summary == "Resumo fake"
+
+
+def test_code_modeling_agent_requests_a_copyable_structured_response(tmp_path: Path):
+    class RecordingProvider(FakeCodexProvider):
+        def __init__(self):
+            self.prompt = ""
+            self.write_access = True
+
+        def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+            self.prompt = prompt
+            self.write_access = write_access
+            return "Modelo proposto"
+
+    provider = RecordingProvider()
+    result = CodeModelingAgent(provider).run(ContextPacket(project_name="Demo", project_root=tmp_path, objective="Modelar faturas"))
+
+    assert result.agent == "code_modeling"
+    assert "Pontos de extensão para novas features" in provider.prompt
+    assert not provider.write_access
 
 
 def test_documentation_writer_receives_write_access(tmp_path: Path):
@@ -167,6 +195,30 @@ def test_code_documentation_and_test_author_receive_write_access(tmp_path: Path)
     assert CodeDocumentationAgent(provider).run(packet).agent == "code_documentation"
     assert TestAuthorAgent(provider).run(packet).agent == "test_author"
     assert provider.accesses == [True, True]
+
+
+def test_code_documentation_agent_requires_all_selected_declarations_to_be_documented(tmp_path: Path):
+    class RecordingProvider(FakeCodexProvider):
+        def __init__(self):
+            self.prompt = ""
+
+        def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+            self.prompt = prompt
+            return "Documentação atualizada"
+
+    provider = RecordingProvider()
+    CodeDocumentationAgent(provider).run(
+        ContextPacket(
+            project_name="Demo",
+            project_root=tmp_path,
+            objective="Documentar módulo",
+            relevant_files=["src/service.py"],
+            file_contents={"src/service.py": "class Service:\n    def run(self): pass\n"},
+        )
+    )
+
+    assert "todas as classes, funções, métodos e declarações de tipos" in provider.prompt
+    assert "incluindo elementos privados" in provider.prompt
 
 
 def test_bug_reproduction_is_read_only_and_skips_non_bug_requests(tmp_path: Path):

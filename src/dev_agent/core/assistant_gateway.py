@@ -13,9 +13,14 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Expor a análise de padrões de projeto para assistentes externas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Expor a orientação de modelagem de código para assistentes externas.
 
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
+from dev_agent.agents.code_modeling_agent import CodeModelingAgent
 from dev_agent.agents.database_agent import DatabaseAgent
 from dev_agent.agents.dependency_agent import DependencyAgent
 from dev_agent.agents.design_patterns_agent import DesignPatternsAgent
@@ -38,6 +43,7 @@ class AssistantGateway:
 
     _SPECIALISTS: dict[str, type[ReadOnlySpecialistAgent]] = {
         "requirements": RequirementsAgent,
+        "code_modeling": CodeModelingAgent,
         "security": SecurityAgent,
         "database": DatabaseAgent,
         "api_contract": ApiContractAgent,

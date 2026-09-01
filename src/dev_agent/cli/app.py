@@ -33,7 +33,15 @@
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 01/09/2026
-# Objetivo: Adicionar e revisar cabeçalhos ausentes mediante confirmação explícita.
+# Objetivo: Gerar propósitos por arquivo e reparar cabeçalhos genéricos mediante confirmação.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Expor a orientação de modelagem de código sob demanda pela CLI.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Solicitar documentação completa de declarações pelo comando document.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -80,10 +88,11 @@ def commands() -> None:
         "[cyan]context[/cyan]  Monta o contexto do projeto.\n"
         "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
         "[cyan]task[/cyan]     Cria um plano de tarefa para aprovação.\n"
-        "[cyan]document[/cyan] Agent de comentários e cabeçalhos: documenta código e aplica o cabeçalho padrão.\n"
+        "[cyan]document[/cyan] Documenta classes, funções e tipos, além de aplicar cabeçalhos quando necessário.\n"
         "[cyan]document-project[/cyan] Cria documentação abrangente do projeto.\n"
-        "[cyan]headers[/cyan] Lista cabeçalhos ausentes; use --apply --confirm para inseri-los.\n"
+        "[cyan]headers[/cyan] Lista cabeçalhos ausentes; use --plan ou --apply --confirm.\n"
         "[cyan]patterns[/cyan] Avalia padrões de projeto e seus trade-offs.\n"
+        "[cyan]model[/cyan]     Propõe uma modelagem de código para copiar e revisar.\n"
         "[cyan]run[/cyan]      Inicia um plano aprovado em worktree isolado.\n"
         "[cyan]job[/cyan]      Consulta o status de uma tarefa em background.\n"
         "[cyan]cancel[/cyan]   Solicita o cancelamento de uma tarefa em execução.\n"
@@ -98,8 +107,9 @@ def commands() -> None:
         "dev-agent ask \"Explique o fluxo de cadastro\"\n"
         "dev-agent task \"Adicione validação de CPF\"\n"
         "dev-agent document src/modulo.py\n"
-        "dev-agent headers --apply --confirm\n"
+        "dev-agent headers --plan\n"
         "dev-agent patterns \"Avalie a camada de providers\"\n"
+        "dev-agent model \"Modele o fluxo de aprovação de faturas\"\n"
         "dev-agent run <id-do-plano> --confirm\n"
         "dev-agent review --staged\n\n"
         "Use [cyan]dev-agent <comando> --help[/cyan] para os detalhes de cada comando."
@@ -150,8 +160,8 @@ def task(objective: str) -> None:
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
 @app.command()
 def document(path: str) -> None:
-    """Cria um plano para documentar código e aplicar o cabeçalho padrão."""
-    objective = f"Documente o código de {path} e aplique o cabeçalho padrão quando o arquivo for alterado."
+    """Cria um plano para documentar declarações de código e aplicar cabeçalhos."""
+    objective = f"Documente todas as classes, funções, métodos e tipos de {path}; aplique o cabeçalho padrão quando o arquivo for alterado."
     plan = _api("POST", "/assistant/task-plans", _project_payload(objective=objective))
     print(Pretty(plan))
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
@@ -167,19 +177,19 @@ def cabecalhos(
     apply: bool = typer.Option(False, "--apply", help="Insere os cabeçalhos ausentes."),
     confirm: bool = typer.Option(False, "--confirm", help="Confirma a alteração dos arquivos listados."),
     check: bool = typer.Option(False, "--check", help="Lista os arquivos elegíveis sem alterar nada."),
-    objective: str = typer.Option("Adicionar cabeçalho padrão.", "--objective", help="Objetivo registrado nos cabeçalhos."),
+    plan: bool = typer.Option(False, "--plan", help="Sugere um propósito individual para cada arquivo."),
 ) -> None:
-    """Lista ou insere cabeçalhos ausentes nos arquivos elegíveis."""
-    if apply and check:
-        raise typer.BadParameter("Use apenas uma das opções: --check ou --apply.")
+    """Lista, planeja ou insere cabeçalhos nos arquivos elegíveis."""
+    if sum((apply, check, plan)) > 1:
+        raise typer.BadParameter("Use apenas uma das opções: --check, --plan ou --apply.")
     if confirm and not apply:
         raise typer.BadParameter("--confirm exige --apply.")
     if apply and not confirm:
-        raise typer.BadParameter("Use --apply --confirm para inserir cabeçalhos.")
+        raise typer.BadParameter("Revise antes com --plan e use --apply --confirm para inserir cabeçalhos.")
     result = _api(
         "POST",
         "/headers",
-        _project_payload(confirmed_apply=apply, objective=objective),
+        _project_payload(confirmed_apply=apply, suggest_purposes=plan),
     )
     print(Pretty(result))
 
@@ -187,6 +197,12 @@ def cabecalhos(
 def patterns(objective: str) -> None:
     """Analisa padrões de projeto sem alterar arquivos."""
     result = _api("POST", "/assistant/invocations", _project_payload(agent="design_patterns", objective=objective))
+    print(Pretty(result))
+
+@app.command("model")
+def modelar(objective: str) -> None:
+    """Propõe uma modelagem de código sem alterar arquivos."""
+    result = _api("POST", "/assistant/invocations", _project_payload(agent="code_modeling", objective=objective))
     print(Pretty(result))
 
 @app.command()

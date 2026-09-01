@@ -6,6 +6,10 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Cobrir a exposição do agente de padrões de projeto no gateway.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Cobrir a exposição do agente de modelagem de código no gateway.
 from pathlib import Path
 
 import pytest
@@ -41,7 +45,7 @@ class FakeOrchestrator:
 def test_gateway_exposes_only_direct_agents():
     names = {item.name for item in AssistantGateway.available_agents()}
 
-    assert {"ask", "security", "design_patterns", "task", "review"} <= names
+    assert {"ask", "code_modeling", "security", "design_patterns", "task", "review"} <= names
     assert "implementation" not in names
 
 
@@ -57,6 +61,14 @@ def test_gateway_runs_design_patterns_agent():
     results, suggestions = AssistantGateway(FakeOrchestrator()).invoke("design_patterns", "Avaliar a arquitetura")
 
     assert results[0].agent == "design_patterns"
+    assert results[0].summary == "Análise recebida"
+    assert suggestions == []
+
+
+def test_gateway_runs_code_modeling_agent():
+    results, suggestions = AssistantGateway(FakeOrchestrator()).invoke("code_modeling", "Modelar o domínio")
+
+    assert results[0].agent == "code_modeling"
     assert results[0].summary == "Análise recebida"
     assert suggestions == []
 

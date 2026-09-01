@@ -17,7 +17,7 @@ from __future__ import annotations
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 01/09/2026
-# Objetivo: Estruturar o resultado da verificação e aplicação de cabeçalhos.
+# Objetivo: Estruturar propósitos por arquivo na verificação e aplicação de cabeçalhos.
 
 from datetime import datetime
 from enum import Enum
@@ -127,6 +127,7 @@ class CommitSuggestion(BaseModel):
 
 class HeaderBatchResult(BaseModel):
     candidates: list[str] = Field(default_factory=list)
+    purposes: dict[str, str] = Field(default_factory=dict)
     applied: list[str] = Field(default_factory=list)
 
 

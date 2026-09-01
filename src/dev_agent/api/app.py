@@ -19,7 +19,7 @@ from __future__ import annotations
 # DevAgent
 # Autor: Dayvid Santana
 # Data: 01/09/2026
-# Objetivo: Expor a verificação e aplicação confirmada de cabeçalhos ausentes.
+# Objetivo: Expor propósitos gerados por arquivo antes de aplicar cabeçalhos ausentes.
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -43,7 +43,7 @@ class ObjectiveRequest(ProjectRequest): objective: str
 class ReviewRequest(ProjectRequest): staged: bool = False
 class HeadersRequest(ProjectRequest):
     confirmed_apply: bool = False
-    objective: str = "Adicionar cabeçalho padrão."
+    suggest_purposes: bool = False
 
 def orchestrator(cwd: Path) -> Orchestrator:
     return Orchestrator(discover_project(cwd), CodexProvider())
@@ -114,7 +114,9 @@ def commit_plan(request: ProjectRequest): return [item.model_dump() for item in 
 def headers(request: HeadersRequest) -> HeaderBatchResult:
     service = orchestrator(request.cwd)
     if request.confirmed_apply:
-        return service.aplicarCabecalhosAusentes(request.objective)
+        return service.aplicarCabecalhosAusentes()
+    if request.suggest_purposes:
+        return service.planejarCabecalhosAusentes()
     return service.listarCabecalhosAusentes()
 
 if __name__ == "__main__":

@@ -3,6 +3,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Preservar cabeçalhos existentes durante a documentação de código.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Substituir o propósito genérico de cabeçalhos inseridos em lote.
 from __future__ import annotations
 
 from datetime import date
@@ -14,6 +18,7 @@ class HeaderService:
     _line = {".py": "#", ".yaml": "#", ".yml": "#", ".ps1": "#", ".sh": "#", ".js": "//", ".ts": "//", ".tsx": "//", ".jsx": "//", ".java": "//", ".cs": "//", ".c": "//", ".cpp": "//", ".h": "//", ".sql": "--"}
     _block = {".css": ("/*", " * ", " */"), ".html": ("<!--", "", "-->"), ".xml": ("<!--", "", "-->"), ".md": ("<!--", "", "-->")}
     _excluded_names = {"package-lock.json", "poetry.lock", "uv.lock"}
+    _generic_batch_purpose = "Adicionar cabeçalho padrão."
 
     def __init__(self, config: DevAgentConfig) -> None:
         self.config = config
@@ -35,12 +40,17 @@ class HeaderService:
             return first.startswith(self._line[path.suffix.lower()])
         return first.startswith(self._block[path.suffix.lower()][0])
 
+    def needs_header(self, path: Path, content: str) -> bool:
+        return self.config.headers.enabled and self.supports(path) and (
+            not self.has_header(path, content) or self._has_generic_batch_purpose(path, content)
+        )
+
     def apply(self, path: Path, content: str, objective: str, task_key: str, existing: str | None = None) -> str:
-        if not self.config.headers.enabled or not self.supports(path):
-            return content
         old = existing if existing is not None else content
-        if self.has_header(path, old):
+        if not self.needs_header(path, old):
             return content
+        if self._has_generic_batch_purpose(path, old):
+            return self._replace_generic_batch_purpose(path, content, objective)
         entry = self._entry(path, objective, initial=True)
         marker = self._marker(path, task_key)
         entry = f"{entry}{marker}\n"
@@ -61,6 +71,23 @@ class HeaderService:
             return f"{self._line[path.suffix.lower()]} DevAgent-Task: {task_key}\n"
         opening, prefix, closing = self._block[path.suffix.lower()]
         return f"{opening}\n{prefix}DevAgent-Task: {task_key}\n{closing}\n"
+
+    def _has_generic_batch_purpose(self, path: Path, content: str) -> bool:
+        return (
+            self.has_header(path, content)
+            and "DevAgent-Task: headers" in content
+            and f"Objetivo: {self._generic_batch_purpose}" in content
+        )
+
+    def _replace_generic_batch_purpose(self, path: Path, content: str, objective: str) -> str:
+        if path.suffix.lower() in self._line:
+            current = f"{self._line[path.suffix.lower()]} Objetivo: {self._generic_batch_purpose}"
+            replacement = f"{self._line[path.suffix.lower()]} Objetivo: {objective}"
+        else:
+            prefix = self._block[path.suffix.lower()][1]
+            current = f"{prefix}Objetivo: {self._generic_batch_purpose}"
+            replacement = f"{prefix}Objetivo: {objective}"
+        return content.replace(current, replacement, 1)
 
     def _insert_safely(self, path: Path, content: str, entry: str, initial: bool) -> str:
         if path.suffix.lower() == ".py" and content.startswith("#!"):

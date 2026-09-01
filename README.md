@@ -76,10 +76,11 @@ Uma solicitação com termos estruturais, como autenticação, migração de ban
 | `context [objetivo]` | Mostra o pacote de contexto selecionado. |
 | `ask <pergunta>` | Consulta o provider em modo somente leitura. |
 | `task <objetivo>` / `run <id> --confirm` | Cria plano e inicia escrita isolada. |
-| `document <caminho>` | Aciona o agent de comentários e cabeçalhos: cria um plano para documentar o código e aplicar o cabeçalho padrão. |
+| `document <caminho>` | Cria um plano para documentar classes, funções, métodos e tipos, além de aplicar cabeçalho quando necessário. |
 | `document-project` | Cria um plano com objetivo de documentação abrangente. |
-| `headers [--check]` | Lista arquivos elegíveis sem cabeçalho; use `--apply --confirm` para inseri-los. |
+| `headers [--check]` | Lista arquivos elegíveis; use `--plan` para revisar propósitos e `--apply --confirm` para inserir ou corrigir cabeçalhos. |
 | `patterns <objetivo>` | Analisa padrões de projeto e seus trade-offs, sem alterar arquivos. |
+| `model <objetivo>` | Produz uma modelagem de código autocontida para copiar, revisar e evoluir. |
 | `job`, `cancel`, `resume`, `cleanup` | Consultam e controlam jobs assíncronos. |
 | `review [--staged]`, `test`, `debug <mensagem>` | Revisam diff, executam testes configurados ou investigam uma falha. |
 | `commit` | Sugere agrupamentos de Conventional Commits; não cria commit nem faz push. |

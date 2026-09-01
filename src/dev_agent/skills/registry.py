@@ -3,6 +3,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Centralizar as regras reutilizáveis dos agentes especializados.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 01/09/2026
+# Objetivo: Exigir cobertura documental de declarações de código selecionadas.
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,8 +27,8 @@ _SKILLS = {
     ),
     "code-documentation": Skill(
         name="code-documentation",
-        description="Documenta decisões e contratos não óbvios no código alterado.",
-        instructions="Prefira docstrings e comentários curtos para regras de negócio, efeitos colaterais e contratos. Não documente o óbvio, não refatore e não modifique comportamento.",
+        description="Documenta classes, funções e tipos no código selecionado sem alterar comportamento.",
+        instructions="Documente todas as classes, funções, métodos e declarações de tipos selecionadas com o formato idiomático da linguagem. Informe responsabilidade e, quando aplicável, entradas, saídas, efeitos colaterais ou invariantes. Use comentários internos apenas para decisões não óbvias; não refatore nem modifique comportamento.",
     ),
     "test-design": Skill(
         name="test-design",

@@ -36,7 +36,7 @@ Não há autenticação, autorização, TLS ou isolamento multiusuário. A API �
 | `POST /agent/test` | `{ "cwd": "..." }` | Resultado da suíte configurada. |
 | `POST /agent/debug` | `{ "cwd": "...", "objective": "..." }` | Diagnóstico baseado em contexto e testes. |
 | `POST /git/commit-plan` | `{ "cwd": "..." }` | Sugestões de commits; não grava commits. |
-| `POST /headers` | `{ "cwd": "...", "confirmed_apply": false }` | Lista arquivos elegíveis sem cabeçalho; aplica apenas com confirmação. |
+| `POST /headers` | `{ "cwd": "...", "suggest_purposes": true }` | Lista arquivos elegíveis e, sob demanda, propõe um propósito por arquivo; aplica apenas com confirmação. |
 
 `POST /agent/task` está marcado como obsoleto e sempre recusa a execução direta. Use o fluxo de planos abaixo.
 
@@ -56,7 +56,7 @@ Não há autenticação, autorização, TLS ou isolamento multiusuário. A API �
 }
 ```
 
-Os campos `agent` e `objective` têm, respectivamente, limite de 80 e 4.000 caracteres. Os nomes aceitos são `ask`, `context`, `review`, `test`, `debug`, `git`, `documentation`, `bug_reproduction` e os especialistas `requirements`, `security`, `database`, `api_contract`, `quality`, `dependency`, `design_patterns`, `performance`, `frontend`, `observability`, `release` e `refactor`.
+Os campos `agent` e `objective` têm, respectivamente, limite de 80 e 4.000 caracteres. Os nomes aceitos são `ask`, `context`, `review`, `test`, `debug`, `git`, `documentation`, `bug_reproduction` e os especialistas `requirements`, `code_modeling`, `security`, `database`, `api_contract`, `quality`, `dependency`, `design_patterns`, `performance`, `frontend`, `observability`, `release` e `refactor`.
 
 `agent: "task"` aparece na listagem para indicar o fluxo disponível, porém a invocação direta é deliberadamente recusada. `implementation`, agentes de escrita e políticas não são invocáveis por essa rota.
 

@@ -86,6 +86,20 @@ agents:
     legacy: false
     status: active
 
+  - id: code_modeling
+    name: code_modeling
+    aliases: [model]
+    module: dev_agent.agents.code_modeling_agent.agent
+    class_name: CodeModelingAgent
+    purpose: Propõe uma modelagem de código orientada a evolução futura, sem escrever arquivos.
+    mode: read
+    kind: subagent
+    tools: [provider]
+    dependencies: [context]
+    invocation: 'dev-agent model "<objetivo>"'
+    legacy: false
+    status: active
+
   - id: test_author
     name: test_author
     module: dev_agent.agents.test_author_agent.agent
