@@ -127,6 +127,8 @@ O `Orchestrator` serializa as fases que podem escrever por meio de um lock de pr
 
 O processo iniciado por `python -m dev_agent.api.app` escuta por padrão em `127.0.0.1:8765`. A API não implementa autenticação nem isolamento multiusuário; não deve ser exposta à rede. O contrato HTTP, modelos de entrada e ciclo de jobs estão em [docs/assistant-backend.md](docs/assistant-backend.md).
 
+CORS aceita apenas o dev server do Diana em `http://127.0.0.1:5173`/`http://localhost:5173` e `http://127.0.0.1:5174`/`http://localhost:5174` (mesmo par de origens liberado pelo devmate) — nenhuma outra origem é aceita.
+
 Após alterar um agent ou o catálogo `agents/catalog.yaml`, reinicie a API local para que as alterações sejam carregadas:
 
 ```powershell

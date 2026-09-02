@@ -38,9 +38,16 @@ from dev_agent.providers.codex.provider import CodexProvider
 
 app = FastAPI(title="DevAgent", version="0.1.0")
 
-# Local-first: só o dev server padrão do Vite (frontend Diana), que chama esta
-# API diretamente do navegador em vez de via proxy. Nunca uma origem remota.
-_ALLOWED_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"]
+# Local-first: só o dev server do Vite (frontend Diana), que chama esta API
+# diretamente do navegador em vez de via proxy. Nunca uma origem remota.
+# 5174 é a porta atual do Diana; 5173 (padrão do Vite) fica por compatibilidade
+# — mesmo par de origens liberado pelo devmate (Cortana/src/devmate/api/app.py).
+_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:5174",
+    "http://localhost:5174",
+]
 
 app.add_middleware(
     CORSMiddleware,
