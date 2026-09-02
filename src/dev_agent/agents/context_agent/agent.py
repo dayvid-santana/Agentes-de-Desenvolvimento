@@ -13,8 +13,13 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Incluir arquivos alterados ainda não rastreados pelo Git.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 02/09/2026
+# Objetivo: Selecionar contextos especializados somente quando forem relevantes.
 from __future__ import annotations
 
+import fnmatch
 import re
 from pathlib import Path
 
@@ -29,6 +34,7 @@ from dev_agent.tools.search import FileSearchTool
 
 class ContextAgent(SubAgent):
     name = "context"
+    _referenciaMarkdown = re.compile(r"\[[^\]]+\]\(([^)#]+\.md)(?:#[^)]+)?\)")
 
     def __init__(self, root: Path, config: DevAgentConfig) -> None:
         self.root, self.config = root, config
@@ -46,7 +52,7 @@ class ContextAgent(SubAgent):
         git_diff: str | None = None,
         changed_files: list[str] | None = None,
     ) -> ContextPacket:
-        instructions, docs = self._documentation()
+        docs = self._documentation()
         terms = re.findall(r"[\wÀ-ÿ_-]{3,}", objective.lower())
         explicit = self._explicit_paths(objective)
         candidates = list(
@@ -56,15 +62,24 @@ class ContextAgent(SubAgent):
             )
         )
         changed = self._existing_paths([*self._changed_files(git_diff or ""), *(changed_files or [])])
-        required = [item for item in docs if item.endswith("AGENTS.md")]
-        relevant_docs = [item for item in candidates if item in docs and item not in required]
+        arquivosEscopo = self._agentsDoEscopo([*explicit, *changed, *candidates])
+        arquivosInstrucoes = list(
+            dict.fromkeys(
+                [
+                    *self._agentsRaiz(),
+                    *arquivosEscopo,
+                    *self._contextosEspecializados(terms, [*explicit, *changed, *candidates], arquivosEscopo),
+                ]
+            )
+        )
+        relevant_docs = [item for item in candidates if item in docs and item not in arquivosInstrucoes]
         code_and_tests = [item for item in [*explicit, *changed, *candidates] if item not in docs]
         related = self._related_files([*explicit, *changed, *code_and_tests])
-        fallback_docs = [item for item in docs if item not in required and item not in relevant_docs][:2]
+        fallback_docs = self._documentacaoBase(docs, [*explicit, *changed, *code_and_tests, *related])
         selected = list(
             dict.fromkeys(
                 [
-                    *required,
+                    *arquivosInstrucoes,
                     *explicit,
                     *changed,
                     *code_and_tests,
@@ -86,6 +101,7 @@ class ContextAgent(SubAgent):
             redacted = SensitiveDataRedactor.redact(item.content) or ""
             contents[relative] = redacted
             budget -= len(redacted)
+        instructions = [contents[item] for item in arquivosInstrucoes if item in contents]
         return ContextPacket(
             project_name=self.config.project.name,
             project_root=self.root,
@@ -181,27 +197,79 @@ class ContextAgent(SubAgent):
     def _changed_files(git_diff: str) -> list[str]:
         return list(dict.fromkeys(re.findall(r"^\+\+\+ b/(.+)$", git_diff, re.MULTILINE)))
 
-    def _documentation(self) -> tuple[list[str], list[str]]:
+    def _documentation(self) -> list[str]:
         found: list[str] = []
-        if (self.root / "AGENTS.md").is_file():
-            found.append("AGENTS.md")
-        nested_agents = sorted(
-            str(path.relative_to(self.root)).replace("\\", "/")
-            for path in self.root.rglob("AGENTS.md")
-            if path.parent != self.root
-        )
-        found.extend(nested_agents)
+        found.extend(self._agentsRaiz())
+        found.extend(self._agentsAninhados())
         if (self.root / "README.md").is_file():
             found.append("README.md")
         docs_dir = self.root / "docs"
         if docs_dir.is_dir():
             found.extend(str(path.relative_to(self.root)).replace("\\", "/") for path in docs_dir.rglob("*") if path.is_file())
-        instructions: list[str] = []
-        for item in found:
-            if item.endswith("AGENTS.md"):
-                try:
-                    content = self.files.read_text(item, self.config.context.max_file_chars).content
-                    instructions.append(SensitiveDataRedactor.redact(content) or "")
-                except OSError:
-                    pass
-        return instructions, found
+        return found
+
+    def _agentsRaiz(self) -> list[str]:
+        return ["AGENTS.md"] if (self.root / "AGENTS.md").is_file() else []
+
+    @staticmethod
+    def _documentacaoBase(documentos: list[str], arquivosTecnicos: list[str]) -> list[str]:
+        if arquivosTecnicos:
+            return []
+        return ["README.md"] if "README.md" in documentos else []
+
+    def _agentsAninhados(self) -> list[str]:
+        return sorted(
+            str(path.relative_to(self.root)).replace("\\", "/")
+            for path in self.root.rglob("AGENTS.md")
+            if path.parent != self.root
+        )
+
+    def _agentsDoEscopo(self, caminhos: list[str]) -> list[str]:
+        selecionados: list[str] = []
+        for agente in self._agentsAninhados():
+            diretorio = Path(agente).parent.as_posix()
+            if any(caminho == agente or caminho.startswith(f"{diretorio}/") for caminho in caminhos):
+                selecionados.append(agente)
+        return selecionados
+
+    def _contextosEspecializados(self, termos: list[str], caminhos: list[str], arquivosEscopo: list[str]) -> list[str]:
+        selecionados: list[str] = []
+        for instrucao in [*self._agentsRaiz(), *arquivosEscopo]:
+            try:
+                conteudo = self.files.read_text(instrucao, self.config.context.max_file_chars).content
+            except (OSError, UnicodeDecodeError):
+                continue
+            for linha in conteudo.splitlines():
+                for referencia in self._referenciaMarkdown.findall(linha):
+                    caminho = self._caminhoContexto(instrucao, referencia)
+                    if caminho and self._contextoRelevante(linha, caminho, termos, caminhos):
+                        selecionados.append(caminho)
+        return list(dict.fromkeys(selecionados))
+
+    def _caminhoContexto(self, instrucao: str, referencia: str) -> str | None:
+        try:
+            caminho = self.files.resolve(Path(instrucao).parent / referencia)
+        except PathOutsideProjectError:
+            return None
+        if not caminho.is_file() or not self._pertenceAosContextosAgentes(caminho):
+            return None
+        return caminho.relative_to(self.root).as_posix()
+
+    def _pertenceAosContextosAgentes(self, caminho: Path) -> bool:
+        relativo = caminho.relative_to(self.root).as_posix()
+        return any(fnmatch.fnmatch(relativo, padrao) for padrao in self.config.context.contextosAgentes)
+
+    @staticmethod
+    def _contextoRelevante(linha: str, caminho: str, termos: list[str], caminhos: list[str]) -> bool:
+        termosReferencia = set(re.findall(r"[\w_-]{3,}", f"{linha} {caminho}".lower()))
+        termosTarefa = set(termos)
+        for arquivo in caminhos:
+            termosTarefa.update(re.findall(r"[\w_-]{3,}", arquivo.lower()))
+        return any(
+            termo == referencia
+            or termo.startswith(referencia)
+            or referencia.startswith(termo)
+            or (len(termo) >= 6 and len(referencia) >= 6 and termo[:6] == referencia[:6])
+            for termo in termosTarefa
+            for referencia in termosReferencia
+        )

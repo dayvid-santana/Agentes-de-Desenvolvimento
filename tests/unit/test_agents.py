@@ -28,6 +28,10 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Cobrir a exigência de documentação de todas as declarações selecionadas.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 02/09/2026
+# Objetivo: Cobrir a seleção progressiva de instruções para agentes de IA.
 from pathlib import Path
 from dev_agent.agents.api_contract_agent import ApiContractAgent
 from dev_agent.agents.bug_reproduction_agent import BugReproductionAgent
@@ -58,22 +62,81 @@ class FakeCodexProvider:
     def available(self): return True
     def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600): return "Resumo fake"
 
-def test_context_agent_prioritizes_agents_and_docs(tmp_path: Path):
+def test_context_agent_loads_only_root_and_scope_agent_instructions(tmp_path: Path):
     (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
     (tmp_path / "AGENTS.md").write_text("Regra importante", encoding="utf-8")
     (tmp_path / "src").mkdir(); (tmp_path / "src" / "AGENTS.md").write_text("Regra específica", encoding="utf-8")
     (tmp_path / "docs").mkdir(); (tmp_path / "docs" / "guide.md").write_text("Guia", encoding="utf-8")
     agent = ContextAgent(tmp_path, load_config(tmp_path)); packet = agent.build("explicar guia")
-    assert "AGENTS.md" in packet.documentation and packet.instructions == ["Regra importante", "Regra específica"]
+    assert "AGENTS.md" in packet.documentation and packet.instructions == ["Regra importante"]
 
 
-def test_context_agent_includes_changed_source_before_fallback_docs(tmp_path: Path):
+def test_context_agent_loads_scoped_agent_instructions_for_selected_source(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Regra global", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "AGENTS.md").write_text("Regra do codigo", encoding="utf-8")
+    (tmp_path / "src" / "service.py").write_text("def run(): pass", encoding="utf-8")
+
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Corrigir src/service.py")
+
+    assert packet.instructions == ["Regra global", "Regra do codigo"]
+
+
+def test_context_agent_loads_only_relevant_agent_context_referenced_by_agents_md(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    (tmp_path / "agent-context").mkdir()
+    (tmp_path / "agent-context" / "api.md").write_text("Contrato de API", encoding="utf-8")
+    (tmp_path / "agent-context" / "database.md").write_text("Modelo de dados", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Regra global\n- [API](agent-context/api.md): endpoints, contratos e HTTP.\n"
+        "- [Banco de dados](agent-context/database.md): persistencia e migrations.",
+        encoding="utf-8",
+    )
+
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Alterar endpoint da API")
+
+    assert "agent-context/api.md" in packet.relevant_files
+    assert "agent-context/database.md" not in packet.relevant_files
+    assert packet.instructions[-1] == "Contrato de API"
+
+
+def test_context_agent_matches_documentar_with_documentacao_context(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    (tmp_path / "agent-context").mkdir()
+    (tmp_path / "agent-context" / "documentation.md").write_text("Padrao humano", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "- [Documentação humana](agent-context/documentation.md): README e documentação.",
+        encoding="utf-8",
+    )
+
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Documentar o projeto")
+
+    assert "agent-context/documentation.md" in packet.relevant_files
+
+
+def test_context_agent_rejects_link_outside_configured_agent_context(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "security.md").write_text("Documento humano", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "- [Segurança](docs/security.md): autenticação e permissões.",
+        encoding="utf-8",
+    )
+
+    packet = ContextAgent(tmp_path, load_config(tmp_path)).build("Revisar segurança")
+
+    assert packet.instructions == ["- [Segurança](docs/security.md): autenticação e permissões."]
+
+
+def test_context_agent_does_not_load_fallback_docs_for_changed_source(tmp_path: Path):
     (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
     (tmp_path / "AGENTS.md").write_text("Regra importante", encoding="utf-8")
     (tmp_path / "docs").mkdir(); (tmp_path / "docs" / "guide.md").write_text("Guia", encoding="utf-8")
     (tmp_path / "src").mkdir(); (tmp_path / "src" / "service.py").write_text("def run(): pass", encoding="utf-8")
     packet = ContextAgent(tmp_path, load_config(tmp_path)).build("investigar falha", git_diff="+++ b/src/service.py\n")
-    assert packet.relevant_files.index("src/service.py") < packet.relevant_files.index("docs/guide.md")
+    assert "src/service.py" in packet.relevant_files
+    assert "docs/guide.md" not in packet.relevant_files
 
 
 def test_context_agent_respects_include_and_follows_local_dependencies(tmp_path: Path):

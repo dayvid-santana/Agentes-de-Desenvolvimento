@@ -17,6 +17,7 @@ class DocumentationSettings(BaseModel):
 class ContextSettings(BaseModel):
     include: list[str] = Field(default_factory=lambda: ["src/**", "tests/**", "docs/**", "AGENTS.md", "README.md"])
     exclude: list[str] = Field(default_factory=lambda: [".git/**", ".venv/**", "venv/**", "node_modules/**", "dist/**", "build/**", "coverage/**", "__pycache__/**", "*.pyc", "*.log"])
+    contextosAgentes: list[str] = Field(default_factory=lambda: ["agent-context/**"])
     max_files: int = Field(default=12, ge=1, le=100)
     max_file_chars: int = Field(default=16_000, ge=1_000)
     max_total_chars: int = Field(default=80_000, ge=5_000)
@@ -54,4 +55,3 @@ class DevAgentConfig(BaseModel):
     git: GitSettings = Field(default_factory=GitSettings)
     headers: HeaderSettings = Field(default_factory=HeaderSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)
-

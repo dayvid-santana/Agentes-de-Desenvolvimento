@@ -8,6 +8,7 @@ documentation:
 context:
   include: [src/**, tests/**, docs/**, AGENTS.md, README.md]
   exclude: [.git/**, .venv/**, venv/**, node_modules/**, dist/**, build/**, coverage/**, __pycache__/**, "*.pyc", "*.log"]
+  contextosAgentes: [agent-context/**]
   max_files: 12
   max_file_chars: 16000
   max_total_chars: 80000

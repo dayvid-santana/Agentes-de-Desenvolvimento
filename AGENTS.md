@@ -1,38 +1,24 @@
 # AGENTS.md — DevAgent
 
-## Arquitetura e limites
+## Regras globais obrigatórias
 
-- `cli/` é somente cliente da API local; não conhece agents diretamente.
-- `api/` transforma HTTP em chamadas do `Orchestrator`.
-- `core/` contém contratos (`ContextPacket`, `SubAgentResult`) e coordenação; o orquestrador serializa escrita.
-- `agents/` especializam uma única etapa e trocam apenas pacotes e resumos, nunca histórico bruto.
-- `tools/` encapsula filesystem, busca, terminal, testes e Git. Toda operação de arquivo deve validar a raiz ativa via `FileSystem`.
-- `providers/` define o protocolo de LLM. Particularidades de Codex não podem sair de `providers/codex/`.
+- Preserve a arquitetura existente, mudanças preexistentes do usuário e os limites de `AGENTS.md` do escopo selecionado.
+- Python 3.11+, type hints, UTF-8 e `pathlib.Path`. Código novo usa nomes em português e camelCase; não renomeie código legado apenas por estilo.
+- Não exponha credenciais, conteúdo de `.env`, chaves ou segredos em logs, contexto, respostas ou testes.
+- Não faça push, não altere Git global e não execute operações destrutivas sem confirmação.
+- Execute `pytest` antes de entregar uma alteração.
+- Decisões arquiteturais relevantes devem usar o formato `DECISÃO ARQUITETURAL NECESSÁRIA`.
 
-## Convenções
+## Documentação para pessoas e contexto para IA
 
-- Python 3.11+, type hints, UTF-8, `pathlib.Path` para caminhos.
-- Nomes de funções e variáveis em código novo ou significativamente alterado devem estar em português e em camelCase (ex.: `obterContexto`, `arquivosAlterados`). Código existente em inglês/snake_case não precisa ser renomeado só por isso.
-- Funções pequenas e erros explícitos em `errors.py`.
-- Não adicionar frameworks ou camadas sem necessidade demonstrável.
-- Logs não devem conter credenciais, conteúdo de `.env`, chaves ou segredos.
+`README.md` e `docs/` são documentação humana. `agent-context/` contém instruções técnicas para agentes de IA e não deve ser alterado durante tarefas comuns de documentação. Este arquivo é o índice obrigatório e curto; carregue os contextos especializados abaixo apenas quando forem relevantes.
 
-## SubAgents e contexto
+## Contextos especializados
 
-O `ContextAgent` deve priorizar `AGENTS.md` do escopo, `AGENTS.md` da raiz, `docs/`, README, código e testes. Ele seleciona arquivos progressivamente, respeitando `context.max_*`; um agent recebe somente o `ContextPacket` necessário. Agents de leitura podem ser paralelizados em evolução futura; escrita permanece serializada até existir lock por arquivo confiável.
+- [Arquitetura e extensibilidade](agent-context/architecture.md): `cli`, `api`, `core`, `agents`, `tools`, `providers`, configuração, catálogo ou novos componentes.
+- [Seleção de contexto](agent-context/context.md): `ContextAgent`, `ContextPacket`, busca, limites de tokens, `AGENTS.md` ou `agent-context/`.
+- [Testes e qualidade](agent-context/testing.md): testes, `pytest`, fake, cobertura, regressão, integração ou CI.
+- [Segurança e autonomia](agent-context/security.md): segredos, autenticação, permissões, filesystem, terminal, Git ou comandos destrutivos.
+- [Documentação humana](agent-context/documentation.md): README, `docs/`, API, guias, operação ou documentação.
 
-## Testes
-
-Execute `pytest` antes de entregar. Integrações externas são injetáveis e usam fakes nos testes. Cubra alterações em descoberta, configuração, segurança, cabeçalhos, memória, orquestração e API.
-
-## Cabeçalhos
-
-`HeaderService` é a única fonte da regra de cabeçalhos. Código criado ou significativamente modificado recebe projeto, autor, data dinâmica e objetivo curto. Uma tarefa lógica gera uma única entrada por arquivo. Preserve shebang, declaração XML, licença e formatos que não admitem comentário; nunca altere JSON estrito, lockfiles, gerados, dependências, binários ou artefatos de build apenas para inserir cabeçalho.
-
-## Segurança e autonomia
-
-Implementações normais são autônomas. Decisões arquiteturais relevantes exigem o formato `DECISÃO ARQUITETURAL NECESSÁRIA`; comandos destrutivos exigem confirmação. Não reverta alterações preexistentes do usuário, não faça push automaticamente e não altere Git global.
-
-## Extensibilidade
-
-Para adicionar agent: implemente `SubAgent`, aceite `ContextPacket`, retorne `SubAgentResult`, registre a etapa no orquestrador e declare-o em `agents/catalog.yaml` (fonte única lida por `AgentRegistry`; não duplique a lista em outro lugar). Um agent legado que ainda retorna `str` pode ser envolvido em `LegacyAgentAdapter` em vez de reescrito. Para adicionar tool: crie input/saída estruturados, validação, logs e uma fake testável. Para provider: implemente `LLMProvider` em novo pacote, mantendo autenticação e argumentos específicos encapsulados. Veja `docs/agent-inventory.md` para o inventário completo.
+Os links acima são a fonte de roteamento: mantenha os títulos e descrições com palavras-chave específicas do domínio. Um contexto especializado deve ser conciso, factual, autocontido e não repetir regras globais.

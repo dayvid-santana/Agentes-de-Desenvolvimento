@@ -26,6 +26,7 @@ documentation:
 context:
   include: [src/**, tests/**, docs/**, AGENTS.md, README.md]
   exclude: [.git/**, .venv/**, venv/**, node_modules/**, dist/**, build/**, coverage/**, __pycache__/**, "*.pyc", "*.log"]
+  contextosAgentes: [agent-context/**]
   max_files: 12
   max_file_chars: 16000
   max_total_chars: 80000
@@ -56,7 +57,7 @@ security:
 |---|---|---|
 | `project` | `name` obrigatório; `author` | Identifica o projeto. `author` não alimenta automaticamente `headers.author` quando a configuração é carregada: ambos têm seus próprios valores padrão. O arquivo gerado por `init` os preenche com o mesmo autor. |
 | `documentation` | `priority` | É preservado na configuração, mas a seleção de contexto atual usa ordem própria de `AGENTS.md`, caminhos, mudanças e documentação; não há evidência de que esse campo altere a ordenação. |
-| `context` | `include`, `exclude`, `max_files`, `max_file_chars`, `max_total_chars`, `dependency_depth` | Controla busca e tamanho do pacote. `max_files`: 1–100; `max_file_chars`: mínimo 1.000; `max_total_chars`: mínimo 5.000; profundidade: 0–5. |
+| `context` | `include`, `exclude`, `contextosAgentes`, `max_files`, `max_file_chars`, `max_total_chars`, `dependency_depth` | Controla busca e tamanho do pacote. `contextosAgentes` limita os Markdown especializados que `AGENTS.md` pode referenciar para instruções de IA. `max_files`: 1–100; `max_file_chars`: mínimo 1.000; `max_total_chars`: mínimo 5.000; profundidade: 0–5. |
 | `testing` | `command` | Comando passado ao `TestTool`; ele é separado com `shlex.split` e executado sem shell. |
 | `git` | `conventional_commits`, `review_staged`, `suggest_commit_split` | Declarados e têm os padrões acima. O plano de commit atual sempre aplica a heurística fixa de código/testes/docs; não há evidência de leitura desses três flags nesse fluxo. |
 | `headers` | `enabled`, `author`, `date_format`, `history` | `HeaderService` só acrescenta cabeçalho a arquivos suportados sem cabeçalho. `dev-agent headers --check` lista os candidatos do escopo de contexto; `--plan` propõe um propósito específico por arquivo; `--apply --confirm` insere ou corrige cabeçalhos genéricos criados pelo comando anterior. `history` existe no modelo, mas o serviço atual não usa esse campo. |

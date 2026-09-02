@@ -33,7 +33,7 @@ O resultado final é `PARTIALLY_COMPLETED` quando o resultado do agente `test` c
 
 ## Contexto e escrita
 
-`ContextAgent` prioriza `AGENTS.md` da raiz e dos subdiretórios, caminhos explícitos no objetivo, arquivos alterados, código/testes relacionados e documentação. Para Python, segue imports locais e testes de nome correspondente até `context.dependency_depth`. A seleção respeita `include`, `exclude`, `max_files`, `max_file_chars` e `max_total_chars`; o conteúdo é redigido antes de formar o pacote.
+`ContextAgent` sempre prioriza o `AGENTS.md` da raiz. Um `AGENTS.md` de subdiretório só é incluído quando o contexto seleciona um arquivo daquele escopo. Links Markdown do índice para arquivos em `agent-context/` são incluídos por relevância dos termos do objetivo ou dos caminhos envolvidos. Depois disso, seleciona caminhos explícitos no objetivo, arquivos alterados, código/testes relacionados e documentação humana. Para Python, segue imports locais e testes de nome correspondente até `context.dependency_depth`. A seleção respeita `include`, `exclude`, `contextosAgentes`, `max_files`, `max_file_chars` e `max_total_chars`; o conteúdo é redigido antes de formar o pacote.
 
 Na fase de execução, o orquestrador tira snapshots de arquivos antes e depois de cada agente que pode escrever. Ele atualiza a lista de arquivos modificados e, para formatos suportados, aplica `HeaderService` aos arquivos alterados que ainda não tenham cabeçalho. As escritas são serializadas por `Orchestrator._write_lock` dentro do processo.
 

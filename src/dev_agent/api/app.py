@@ -23,6 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -36,6 +37,19 @@ from dev_agent.core.orchestrator import Orchestrator
 from dev_agent.providers.codex.provider import CodexProvider
 
 app = FastAPI(title="DevAgent", version="0.1.0")
+
+# Local-first: só o dev server padrão do Vite (frontend Diana), que chama esta
+# API diretamente do navegador em vez de via proxy. Nunca uma origem remota.
+_ALLOWED_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
 app.include_router(assistant_backend_router)
 
 class ProjectRequest(BaseModel): cwd: Path

@@ -3,6 +3,10 @@
 # Autor: Dayvid Santana
 # Data: 28/08/2026
 # Objetivo: Isolar o agente de escrita de documentação em módulo próprio.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 02/09/2026
+# Objetivo: Restringir a escrita à documentação destinada a pessoas.
 from __future__ import annotations
 
 from dev_agent.agents.base import SubAgent
@@ -23,8 +27,9 @@ class DocumentationWriterAgent(SubAgent):
         response = self.provider.run(
             f"""Você é o DocumentationWriterAgent do DevAgent. Trabalhe somente em {packet.project_root}.
 Verifique se o diff abaixo alterou comportamento, configuração, operação ou contrato que precise ser documentado.
-Se precisar, atualize exclusivamente README.md, docs/ ou documentação de API já existente; se não precisar, não altere arquivo algum.
-Não altere código, dependências, arquivos gerados, JSON estrito ou lockfiles. Preserve instruções de AGENTS.md.
+Se precisar, siga docs/documentation.md quando esse arquivo existir e atualize exclusivamente README.md, docs/
+ou documentação de API já existente; se não precisar, não altere arquivo algum. Não altere AGENTS.md,
+agent-context/, código, dependências, arquivos gerados, JSON estrito ou lockfiles.
 Responda com o que foi alterado ou com a justificativa para não alterar documentação.
 
 Objetivo: {packet.objective}

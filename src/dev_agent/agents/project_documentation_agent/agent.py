@@ -1,4 +1,8 @@
 """Documentação abrangente e orientada ao estado atual do projeto."""
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 02/09/2026
+# Objetivo: Preservar a separação entre documentação humana e contexto de IA.
 from __future__ import annotations
 
 # DevAgent
@@ -25,8 +29,9 @@ class ProjectDocumentationAgent(SubAgent):
             f"""Você é o ProjectDocumentationAgent do DevAgent. Trabalhe somente em {packet.project_root}.
 Documente o projeto como ele existe hoje. Inspecione README.md, docs/, configuração, código-fonte e testes
 necessários para entender instalação, execução, arquitetura, fluxos, configuração, segurança e testes.
-Crie ou atualize apenas README.md, arquivos em docs/ e documentação de API já existente. Não altere código,
-dependências, configuração, lockfiles ou artefatos gerados. Preserve AGENTS.md e não invente comportamento.
+Siga o padrão em docs/documentation.md quando ele existir. Crie ou atualize apenas README.md, arquivos em docs/
+e documentação de API já existente. Não altere AGENTS.md, agent-context/, código, dependências, configuração,
+lockfiles ou artefatos gerados. Não invente comportamento.
 Se houver lacunas de informação, registre-as claramente em vez de supor.
 
 Objetivo: {packet.objective}

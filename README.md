@@ -117,6 +117,7 @@ O `Orchestrator` serializa as fases que podem escrever por meio de um lock de pr
 - [API local e integração com assistentes](docs/assistant-backend.md)
 - [Segurança e limites operacionais](docs/security.md)
 - [Desenvolvimento e testes](docs/testing.md)
+- [Padrão de documentação humana](docs/documentation.md)
 
 ## Configuração
 

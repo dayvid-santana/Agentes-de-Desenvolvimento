@@ -28,7 +28,7 @@ Este documento descreve o estado observado no repositório. O DevAgent é um pac
 | `src/dev_agent/headers/` | Serviço central que acrescenta cabeçalhos aos formatos suportados quando um arquivo alterado ainda não tem cabeçalho. |
 | `tests/` | Testes unitários e de integração local, com fakes para o provider e Git quando necessário. |
 
-`AGENTS.md` na raiz complementa essas fronteiras com regras de implementação. O `ContextAgent` inclui esse arquivo e eventuais `AGENTS.md` aninhados como instruções para os agentes.
+`AGENTS.md` na raiz é o índice curto das regras globais e dos contextos para IA. O `ContextAgent` sempre o inclui; um `AGENTS.md` aninhado só entra quando um arquivo do respectivo diretório foi selecionado. Links Markdown para `agent-context/` são carregados apenas quando o objetivo ou os caminhos envolvidos correspondem aos termos do link. A documentação humana permanece em `README.md` e `docs/`.
 
 ## Dependências e empacotamento
 
