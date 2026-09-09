@@ -42,6 +42,10 @@
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Solicitar documentação completa de declarações pelo comando document.
+# DevAgent
+# Autor: Dayvid Santana
+# Data: 04/09/2026
+# Objetivo: Documentar todas as funções de todos os arquivos .py, .js, .jsx, .ts, .tsx e .java do projeto pelo comando document-code.
 """Comandos globais que falam exclusivamente com a API local."""
 from __future__ import annotations
 import shutil
@@ -89,6 +93,7 @@ def commands() -> None:
         "[cyan]ask[/cyan]      Responde uma pergunta sobre o projeto.\n"
         "[cyan]task[/cyan]     Cria um plano de tarefa para aprovação.\n"
         "[cyan]document[/cyan] Documenta classes, funções e tipos, além de aplicar cabeçalhos quando necessário.\n"
+        "[cyan]document-code[/cyan] Documenta todas as funções de todos os .py, .js, .jsx, .ts, .tsx e .java do projeto; use --confirm.\n"
         "[cyan]document-project[/cyan] Cria documentação abrangente do projeto.\n"
         "[cyan]headers[/cyan] Lista cabeçalhos ausentes; use --plan ou --apply --confirm.\n"
         "[cyan]patterns[/cyan] Avalia padrões de projeto e seus trade-offs.\n"
@@ -102,11 +107,13 @@ def commands() -> None:
         "[cyan]test[/cyan]     Executa os testes configurados.\n"
         "[cyan]debug[/cyan]    Investiga um problema no projeto.\n"
         "[cyan]commit[/cyan]   Sugere um plano de commit.\n"
+        "[cyan]autocommit[/cyan] Observa o projeto e cria checkpoints locais seguros.\n"
         "[cyan]session[/cyan]  Consulta a sessão; use session clear para removê-la.\n\n"
         "[bold]Exemplos[/bold]\n"
         "dev-agent ask \"Explique o fluxo de cadastro\"\n"
         "dev-agent task \"Adicione validação de CPF\"\n"
         "dev-agent document src/modulo.py\n"
+        "dev-agent document-code --confirm\n"
         "dev-agent headers --plan\n"
         "dev-agent patterns \"Avalie a camada de providers\"\n"
         "dev-agent model \"Modele o fluxo de aprovação de faturas\"\n"
@@ -165,6 +172,40 @@ def document(path: str) -> None:
     plan = _api("POST", "/assistant/task-plans", _project_payload(objective=objective))
     print(Pretty(plan))
     print(f"Para executar em worktree isolado: dev-agent run {plan['id']} --confirm")
+@app.command("document-code")
+def document_code(
+    confirm: bool = typer.Option(False, "--confirm", help="Gera e aplica a documentação em cada arquivo encontrado."),
+) -> None:
+    """Documenta todas as funções, classes e tipos de todos os arquivos .py, .js, .jsx, .ts, .tsx e .java do projeto."""
+    exts = {".py", ".js", ".jsx", ".ts", ".tsx", ".java"}
+    excluded_dirs = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", ".next", "target", ".mypy_cache", ".pytest_cache"}
+    root = _cwd()
+    files = sorted(
+        str(path.relative_to(root)).replace("\\", "/")
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix in exts and not excluded_dirs & set(path.relative_to(root).parts[:-1])
+    )
+    if not files:
+        print("[yellow]Nenhum arquivo .py, .js, .jsx, .ts, .tsx ou .java encontrado.[/yellow]")
+        return
+    print(f"[bold]{len(files)} arquivo(s) encontrado(s):[/bold]")
+    for path in files:
+        print(f"  {path}")
+    if not confirm:
+        print("\nExecute novamente com [cyan]--confirm[/cyan] para gerar e aplicar a documentação em cada arquivo, um por um.")
+        return
+    for path in files:
+        objective = (
+            f"Documente todas as classes, funções, métodos e tipos de {path}, sem exceção, incluindo elementos "
+            "privados e triviais; para cada função ou método, documente cada parâmetro individualmente (nome, "
+            "tipo quando conhecido e propósito), o valor de retorno e efeitos colaterais; aplique o cabeçalho "
+            "padrão quando o arquivo for alterado."
+        )
+        plan = _api("POST", "/assistant/task-plans", _project_payload(objective=objective))
+        result = _api("POST", f"/assistant/task-plans/{plan['id']}/start", {"confirmed_write": True})
+        print(f"[green]OK[/green] {path} -> plano {plan['id']}")
+        print(Pretty(result))
+
 @app.command("document-project")
 def document_project() -> None:
     """Cria um plano para documentar README, docs e contratos do projeto."""
@@ -233,6 +274,23 @@ def test() -> None: print(Pretty(_api("POST", "/agent/test", _project_payload())
 def debug(message: str = typer.Argument("Investigar o estado atual do projeto", help="Erro, comportamento ou fluxo a investigar.")) -> None: print(Pretty(_api("POST", "/agent/debug", _project_payload(objective=message))))
 @app.command()
 def commit() -> None: print(Pretty(_api("POST", "/git/commit-plan", _project_payload())))
+
+@app.command()
+def autocommit(
+    once: bool = typer.Option(False, "--once", help="Tenta criar um checkpoint agora, sem manter o observador ativo."),
+    stop: bool = typer.Option(False, "--stop", help="Interrompe o observador ativo na API local."),
+) -> None:
+    """Cria commits locais após inatividade; requer ``autocommit.enabled: true``."""
+    if once and stop:
+        raise typer.BadParameter("Use apenas uma das opções: --once ou --stop.")
+    if stop:
+        print(Pretty(_api("POST", "/autocommit/stop")))
+        return
+    if once:
+        print(Pretty(_api("POST", "/autocommit/once", _project_payload())))
+        return
+    print(Pretty(_api("POST", "/autocommit/start", _project_payload())))
+    print("[green]Observador ativo na API local; use dev-agent autocommit --stop para interromper. Nenhum push será executado.[/green]")
 
 agents_app = typer.Typer(help="Consulta o catálogo declarativo de Agents (agents/catalog.yaml).")
 @agents_app.callback(invoke_without_command=True)

@@ -37,10 +37,12 @@ class CodeDocumentationAgent(SubAgent):
         header_skill = get_skill("code-header")
         response = self.provider.run(
             f"""Você é o CodeDocumentationAgent do DevAgent. Trabalhe somente em {packet.project_root}.
-Documente todas as classes, funções, métodos e declarações de tipos dos arquivos de código selecionados,
-incluindo elementos privados. Para Python, use docstrings; para JavaScript, TypeScript e JSX/TSX, use JSDoc;
-para as demais linguagens, use o formato idiomático de comentário de documentação. Cada descrição deve indicar
-a responsabilidade, entradas, saídas, efeitos colaterais ou invariantes quando aplicável. Comentários internos
+Documente TODAS as classes, funções, métodos e declarações de tipos dos arquivos de código selecionados, sem
+exceção, incluindo elementos privados, helpers pequenos e funções triviais. Para Python, use docstrings; para
+JavaScript, TypeScript e JSX/TSX, use JSDoc; para as demais linguagens, use o formato idiomático de comentário
+de documentação. Para toda função ou método, documente obrigatoriamente cada parâmetro individualmente (nome,
+tipo quando conhecido e propósito), o valor de retorno, a responsabilidade, efeitos colaterais e invariantes
+quando aplicável; se não houver parâmetros ou retorno, declare isso explicitamente. Comentários internos
 só devem ser usados para decisões não óbvias. Não refatore, não altere comportamento e não modifique nenhum
 cabeçalho existente. Para arquivos novos sem cabeçalho, o orquestrador aplicará o padrão do projeto após sua execução.
 

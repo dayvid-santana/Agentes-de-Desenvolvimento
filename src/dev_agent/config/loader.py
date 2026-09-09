@@ -67,6 +67,13 @@ git:
   review_staged: true
   suggest_commit_split: true
 
+autocommit:
+  enabled: false
+  inactivity_seconds: 300
+  polling_seconds: 5
+  run_tests: true
+  message: "chore(checkpoint): salva alterações locais"
+
 headers:
   enabled: true
   author: {author}

@@ -8,7 +8,7 @@
 
 DevAgent é uma ferramenta local (não um serviço em nuvem) que coordena tarefas de desenvolvimento de software assistidas por IA, dentro de projetos que possuem um arquivo `dev-agent.yaml` na raiz.
 
-Em vez de enviar um único prompt genérico para um modelo e esperar que ele resolva tudo de uma vez — entender o código, implementar, testar, documentar e revisar — o DevAgent divide esse trabalho entre **26 agentes especializados**, cada um com uma única responsabilidade, orquestrados em um pipeline previsível e auditável.
+Em vez de enviar um único prompt genérico para um modelo e esperar que ele resolva tudo de uma vez — entender o código, implementar, testar, documentar e revisar — o DevAgent divide esse trabalho entre **27 agentes especializados**, cada um com uma única responsabilidade, orquestrados em um pipeline previsível e auditável.
 
 Autor: **Dayvid Santana**. Projeto pessoal, em Python, código aberto para uso próprio (sem licença/CI/release publicados até o momento).
 
@@ -43,7 +43,7 @@ Assistente externa ─┘                                          ├─> Conte
 | CLI | `src/dev_agent/cli/` | Comandos Typer; consome a API local via HTTP, não instancia agentes diretamente. |
 | API | `src/dev_agent/api/` | Aplicação FastAPI: rotas de operações locais, planos e jobs. |
 | Core | `src/dev_agent/core/` | Contratos Pydantic, orquestração, máquina de estados, gateway de assistente, jobs assíncronos. |
-| Agentes | `src/dev_agent/agents/` | Os 26 agentes especializados; registrados via `agents/catalog.yaml`. |
+| Agentes | `src/dev_agent/agents/` | Os 27 agentes especializados; registrados via `agents/catalog.yaml`. |
 | Tools | `src/dev_agent/tools/` | Operações encapsuladas: arquivos, Git, terminal, busca, testes. |
 | Providers | `src/dev_agent/providers/` | Protocolo independente de provedor + adaptador da Codex CLI. |
 | Segurança | `src/dev_agent/security/` | Heurística de decisão arquitetural, política de comandos destrutivos, redação de dados sensíveis. |
@@ -56,7 +56,7 @@ Assistente externa ─┘                                          ├─> Conte
 
 ---
 
-## 3. Os 26 agentes
+## 3. Os 27 agentes
 
 Cada agente é declarado em `agents/catalog.yaml` (fonte única de verdade) com módulo, classe, modo (`read`/`write`/`execute`/`guard`), ferramentas, dependências e comando de invocação. O `AgentRegistry` valida o catálogo, recusa IDs duplicados e verifica imports.
 
@@ -92,6 +92,7 @@ Cada agente é declarado em `agents/catalog.yaml` (fonte única de verdade) com 
 |---|---|
 | `documentation` | Avalia impactos de documentação. |
 | `git` | Sugere agrupamentos de commit em Conventional Commits — **nunca cria commit**. |
+| `auto_commit` | Serviço local opt-in que cria checkpoints após inatividade e testes aprovados; não faz push. |
 
 ---
 
@@ -119,7 +120,7 @@ Pontos-chave:
 - Cada checkpoint persiste fase concluída, agentes executados e arquivos alterados — permitindo **retomar** (`resume`) um job interrompido, até 3 tentativas.
 - `cancel` é cooperativo (encerra o processo em execução); `cleanup --confirm` remove o worktree com `git worktree remove --force` (descarta não commitados).
 - Resultado `PARTIALLY_COMPLETED` quando os testes emitem avisos — revisão e especialistas ainda rodam mesmo assim.
-- Nada é commitado, enviado (push) ou revertido automaticamente.
+- O pipeline padrão não commita, envia (push) ou reverte automaticamente. O serviço `auto_commit` é opt-in e cria apenas commits locais após suas validações.
 
 ---
 
@@ -146,6 +147,9 @@ dev-agent review [--staged]
 dev-agent test
 dev-agent debug "<mensagem>"
 dev-agent commit                     # sugere agrupamento de commits, não commita
+dev-agent autocommit                 # inicia checkpoints locais opt-in na API
+dev-agent autocommit --once          # tenta um checkpoint imediatamente
+dev-agent autocommit --stop          # interrompe o observador
 
 dev-agent agents [list|show|graph|doctor]
 ```

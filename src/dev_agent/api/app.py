@@ -29,7 +29,8 @@ from pydantic import BaseModel
 
 from dev_agent.agents.registry import AgentRegistry
 from dev_agent.api.assistant_backend import router as assistant_backend_router
-from dev_agent.config.loader import discover_project
+from dev_agent.config.loader import discover_project, load_config
+from dev_agent.core.auto_commit_manager import AutoCommitManager
 from dev_agent.errors import DevAgentError, UnsafeCommandError
 from dev_agent.memory.session_store import SessionStore
 from dev_agent.core.models import HeaderBatchResult
@@ -58,6 +59,7 @@ app.add_middleware(
 )
 
 app.include_router(assistant_backend_router)
+auto_commit_manager = AutoCommitManager()
 
 class ProjectRequest(BaseModel): cwd: Path
 class ObjectiveRequest(ProjectRequest): objective: str
@@ -130,6 +132,26 @@ def test(request: ProjectRequest): return orchestrator(request.cwd).test().model
 def debug(request: ObjectiveRequest): return orchestrator(request.cwd).debug(request.objective).model_dump(mode="json")
 @app.post("/git/commit-plan")
 def commit_plan(request: ProjectRequest): return [item.model_dump() for item in orchestrator(request.cwd).commit_plan()]
+
+@app.get("/autocommit")
+def autocommit_status(): return auto_commit_manager.status()
+
+@app.post("/autocommit/start")
+def autocommit_start(request: ProjectRequest):
+    root = discover_project(request.cwd)
+    config = load_config(root)
+    if not config.autocommit.enabled:
+        raise DevAgentError("Defina autocommit.enabled: true em dev-agent.yaml antes de iniciar o serviço.")
+    return auto_commit_manager.start(root, config)
+
+@app.post("/autocommit/once")
+def autocommit_once(request: ProjectRequest):
+    root = discover_project(request.cwd)
+    config = load_config(root)
+    return auto_commit_manager.run_once(root, config).model_dump(mode="json")
+
+@app.post("/autocommit/stop")
+def autocommit_stop(): return auto_commit_manager.stop()
 
 @app.post("/headers", response_model=HeaderBatchResult)
 def headers(request: HeadersRequest) -> HeaderBatchResult:

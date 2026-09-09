@@ -58,6 +58,17 @@ def test_health_endpoint():
     assert client.get("/health").json()["status"] == "ok"
 
 
+def test_autocommit_once_uses_the_project_configuration_without_starting_a_watcher(tmp_path: Path):
+    (tmp_path / "dev-agent.yaml").write_text(render_default_config("Demo"), encoding="utf-8")
+    client = TestClient(app)
+
+    response = client.post("/autocommit/once", json={"cwd": str(tmp_path)})
+
+    assert response.status_code == 200
+    assert not response.json()["committed"]
+    assert "não está habilitado" in response.json()["reason"]
+
+
 def test_agents_endpoint_lists_registered_agents():
     client = TestClient(app)
     response = client.get("/agents")
@@ -230,7 +241,25 @@ def test_commands_lists_the_main_cli_commands():
     assert "headers" in result.output
     assert "patterns" in result.output
     assert "model" in result.output
+    assert "autocommit" in result.output
     assert "review --staged" in result.output
+
+
+def test_autocommit_command_uses_only_the_local_api(monkeypatch):
+    calls: list[tuple[str, str, dict | None]] = []
+
+    def api(method, endpoint, payload=None):
+        calls.append((method, endpoint, payload))
+        return {"running": endpoint.endswith("start")}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+
+    assert runner.invoke(cli_app, ["autocommit"]).exit_code == 0
+    assert calls[-1][:2] == ("POST", "/autocommit/start")
+    assert runner.invoke(cli_app, ["autocommit", "--once"]).exit_code == 0
+    assert calls[-1][:2] == ("POST", "/autocommit/once")
+    assert runner.invoke(cli_app, ["autocommit", "--stop"]).exit_code == 0
+    assert calls[-1][:2] == ("POST", "/autocommit/stop")
 
 
 def test_document_command_creates_a_safe_documentation_plan(monkeypatch):

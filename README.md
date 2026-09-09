@@ -84,6 +84,7 @@ Uma solicitação com termos estruturais, como autenticação, migração de ban
 | `job`, `cancel`, `resume`, `cleanup` | Consultam e controlam jobs assíncronos. |
 | `review [--staged]`, `test`, `debug <mensagem>` | Revisam diff, executam testes configurados ou investigam uma falha. |
 | `commit` | Sugere agrupamentos de Conventional Commits; não cria commit nem faz push. |
+| `autocommit [--once|--stop]` | Inicia, testa ou interrompe checkpoints locais opt-in; nunca faz push. |
 | `agents [list|show|graph|doctor]` | Consulta o catálogo declarativo. |
 | `session [clear]` | Consulta ou remove a sessão local ativa. |
 

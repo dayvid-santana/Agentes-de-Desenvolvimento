@@ -321,6 +321,21 @@ agents:
     legacy: false
     status: active
 
+  - id: auto_commit
+    name: auto_commit
+    aliases: [autocommit]
+    module: dev_agent.agents.auto_commit_agent.agent
+    class_name: AutoCommitAgent
+    purpose: Cria checkpoints Git locais após inatividade, somente quando os testes passam.
+    mode: execute
+    kind: service
+    tools: [git, tests, terminal]
+    input_model: DevAgentConfig
+    output_model: AutoCommitResult
+    invocation: dev-agent autocommit [--once]
+    legacy: false
+    status: active
+
   - id: architecture_guard
     name: architecture_guard
     module: dev_agent.security.architecture_guard

@@ -28,7 +28,7 @@ _SKILLS = {
     "code-documentation": Skill(
         name="code-documentation",
         description="Documenta classes, funções e tipos no código selecionado sem alterar comportamento.",
-        instructions="Documente todas as classes, funções, métodos e declarações de tipos selecionadas com o formato idiomático da linguagem. Informe responsabilidade e, quando aplicável, entradas, saídas, efeitos colaterais ou invariantes. Use comentários internos apenas para decisões não óbvias; não refatore nem modifique comportamento.",
+        instructions="Documente TODAS as classes, funções, métodos e declarações de tipos selecionadas com o formato idiomático da linguagem, sem exceção, incluindo elementos privados, helpers pequenos e funções triviais. Para toda função ou método, documente obrigatoriamente cada parâmetro individualmente (nome, tipo quando conhecido e propósito), o valor de retorno, responsabilidade, efeitos colaterais e invariantes quando aplicável; se a função não tiver parâmetros ou retorno, declare isso explicitamente. Use comentários internos apenas para decisões não óbvias; não refatore nem modifique comportamento.",
     ),
     "test-design": Skill(
         name="test-design",

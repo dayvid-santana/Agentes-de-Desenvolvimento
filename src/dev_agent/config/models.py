@@ -34,6 +34,16 @@ class GitSettings(BaseModel):
     suggest_commit_split: bool = True
 
 
+class AutoCommitSettings(BaseModel):
+    """Limites explícitos para o serviço local de checkpoints Git."""
+
+    enabled: bool = False
+    inactivity_seconds: int = Field(default=300, ge=5, le=86_400)
+    polling_seconds: int = Field(default=5, ge=1, le=300)
+    run_tests: bool = True
+    message: str = Field(default="chore(checkpoint): salva alterações locais", min_length=1, max_length=200)
+
+
 class HeaderSettings(BaseModel):
     enabled: bool = True
     author: str = "Dayvid Santana"
@@ -53,5 +63,6 @@ class DevAgentConfig(BaseModel):
     context: ContextSettings = Field(default_factory=ContextSettings)
     testing: TestingSettings = Field(default_factory=TestingSettings)
     git: GitSettings = Field(default_factory=GitSettings)
+    autocommit: AutoCommitSettings = Field(default_factory=AutoCommitSettings)
     headers: HeaderSettings = Field(default_factory=HeaderSettings)
     security: SecuritySettings = Field(default_factory=SecuritySettings)

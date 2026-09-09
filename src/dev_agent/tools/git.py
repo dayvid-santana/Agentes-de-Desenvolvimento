@@ -29,6 +29,10 @@ class GitTool:
     def status(self) -> str:
         return self._git("status", "--short", "--branch")
 
+    def porcelain_status(self) -> str:
+        """Estado estável para detectar alterações sem incluir a branch atual."""
+        return self._git("status", "--porcelain")
+
     def diff(self, staged: bool = False) -> str:
         return self._git("diff", "--staged" if staged else "") if staged else self._git("diff")
 
@@ -51,7 +55,31 @@ class GitTool:
         return self._git("rev-parse", "--is-inside-work-tree").strip() == "true"
 
     def is_clean(self) -> bool:
-        return not self._git("status", "--porcelain").strip()
+        return not self.porcelain_status().strip()
+
+    def operation_in_progress(self) -> bool:
+        """Evita interferir com merge, rebase, cherry-pick ou revert em andamento."""
+        for ref in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "REBASE_HEAD"):
+            result = self.terminal.run(["git", "rev-parse", "-q", "--verify", ref])
+            if result.exit_code == 0:
+                return True
+        for directory in ("rebase-merge", "rebase-apply"):
+            path = self._git("rev-parse", "--git-path", directory).strip()
+            if path and (self.root / path).exists():
+                return True
+        return False
+
+    def stage_all(self) -> None:
+        result = self.terminal.run(["git", "add", "-A"])
+        if result.exit_code != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "erro desconhecido"
+            raise ToolExecutionError(f"Não foi possível preparar o checkpoint: {detail}")
+
+    def commit(self, message: str) -> None:
+        result = self.terminal.run(["git", "commit", "-m", message])
+        if result.exit_code != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "erro desconhecido"
+            raise ToolExecutionError(f"Não foi possível criar o checkpoint: {detail}")
 
     def create_worktree(self, job_id: str) -> tuple[Path, str]:
         """Cria uma branch de tarefa fora do checkout ativo, sem tocar nele."""

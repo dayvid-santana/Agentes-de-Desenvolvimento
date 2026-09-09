@@ -40,6 +40,13 @@ git:
   review_staged: true
   suggest_commit_split: true
 
+autocommit:
+  enabled: false
+  inactivity_seconds: 300
+  polling_seconds: 5
+  run_tests: true
+  message: "chore(checkpoint): salva alterações locais"
+
 headers:
   enabled: true
   author: Dayvid Santana
@@ -60,6 +67,7 @@ security:
 | `context` | `include`, `exclude`, `contextosAgentes`, `max_files`, `max_file_chars`, `max_total_chars`, `dependency_depth` | Controla busca e tamanho do pacote. `contextosAgentes` limita os Markdown especializados que `AGENTS.md` pode referenciar para instruções de IA. `max_files`: 1–100; `max_file_chars`: mínimo 1.000; `max_total_chars`: mínimo 5.000; profundidade: 0–5. |
 | `testing` | `command` | Comando passado ao `TestTool`; ele é separado com `shlex.split` e executado sem shell. |
 | `git` | `conventional_commits`, `review_staged`, `suggest_commit_split` | Declarados e têm os padrões acima. O plano de commit atual sempre aplica a heurística fixa de código/testes/docs; não há evidência de leitura desses três flags nesse fluxo. |
+| `autocommit` | `enabled`, `inactivity_seconds`, `polling_seconds`, `run_tests`, `message` | Serviço local e opt-in acionado por `dev-agent autocommit`. Após o período sem alteração Git, ele executa os testes quando configurado, só cria um commit local se o índice estiver vazio e o estado não mudar durante a validação. Ele bloqueia caminhos sensíveis e operações de merge/rebase/cherry-pick/revert; nunca faz `push`. `inactivity_seconds`: 5–86.400; `polling_seconds`: 1–300. |
 | `headers` | `enabled`, `author`, `date_format`, `history` | `HeaderService` só acrescenta cabeçalho a arquivos suportados sem cabeçalho. `dev-agent headers --check` lista os candidatos do escopo de contexto; `--plan` propõe um propósito específico por arquivo; `--apply --confirm` insere ou corrige cabeçalhos genéricos criados pelo comando anterior. `history` existe no modelo, mas o serviço atual não usa esse campo. |
 | `security` | `require_architecture_approval`, `require_destructive_command_approval`, `sensitive_patterns` | `sensitive_patterns` também é adicionada às exclusões de busca. O `Orchestrator.task()` consulta `require_architecture_approval`, mas o fluxo normal de plano/job exige aprovação sempre que `TaskJobManager` detectar uma palavra-chave estrutural; portanto, desativar o flag não elimina essa exigência no fluxo HTTP/CLI atual. `require_destructive_command_approval` é declarado, mas `TerminalTool` chama a política de comando diretamente; não há evidência de que o flag a desative. |
 

@@ -2,7 +2,7 @@
 
 `agents/catalog.yaml` é a fonte única de verdade. `AgentRegistry` valida o YAML, recusa IDs duplicados, resolve ID/nome/alias sem diferenciar maiúsculas e minúsculas e verifica imports/atributos em `doctor`. Não mantenha uma lista paralela no orquestrador ou na CLI.
 
-O catálogo atual contém 26 componentes.
+O catálogo atual contém 27 componentes.
 
 | Grupo | IDs e propósito |
 |---|---|
@@ -10,7 +10,7 @@ O catálogo atual contém 26 componentes.
 | Escrita de tarefa | `implementation` altera a tarefa aprovada; `documentation_writer` atualiza documentação necessária; `project_documentation` documenta o projeto; `code_documentation` documenta classes, funções, métodos e tipos do código selecionado; `test_author` cria/atualiza testes relacionados. |
 | Teste e diagnóstico | `test` executa a suíte; `bug_reproduction` propõe reprodução verificável para relatos de falha; `review` examina o diff; `debug` diagnostica usando testes, diff e contexto. |
 | Análises especializadas | `code_modeling`, `security`, `database`, `api_contract`, `quality`, `dependency`, `design_patterns`, `performance`, `frontend`, `observability`, `release` e `refactor` analisam o contexto selecionado em modo leitura. |
-| Documentação e Git | `documentation` avalia impactos de documentação; `git` sugere commits sem criá-los. |
+| Documentação e Git | `documentation` avalia impactos de documentação; `git` sugere commits sem criá-los; `auto_commit` cria checkpoints locais opt-in depois de inatividade e testes aprovados. |
 
 ## Registro e invocação
 
@@ -28,6 +28,6 @@ context -> requirements -> implementation
         -> test/bug_reproduction -> review/documentation/especialistas
 ```
 
-O `project_documentation` é acionado condicionalmente quando o objetivo começa por `documentar o projeto`. `git` é independente e chamado por `dev-agent commit`. `design_patterns` é sob demanda, por `dev-agent patterns "<objetivo>"`, e não integra automaticamente o pipeline de escrita. `code_modeling` também é sob demanda, por `dev-agent model "<objetivo>"`; sua resposta é autocontida para cópia e revisão em outro chat antes de uma tarefa de escrita.
+O `project_documentation` é acionado condicionalmente quando o objetivo começa por `documentar o projeto`. `git` é independente e chamado por `dev-agent commit`. `auto_commit` é um serviço local opt-in, iniciado por `dev-agent autocommit`, e não participa do pipeline de tarefas nem faz push. `design_patterns` é sob demanda, por `dev-agent patterns "<objetivo>"`, e não integra automaticamente o pipeline de escrita. `code_modeling` também é sob demanda, por `dev-agent model "<objetivo>"`; sua resposta é autocontida para cópia e revisão em outro chat antes de uma tarefa de escrita.
 
 Para os valores exatos de módulo, classe, modo, ferramentas e dependências, consulte `agents/catalog.yaml` ou execute `dev-agent agents list`, `dev-agent agents show <id>`, `dev-agent agents graph` e `dev-agent agents doctor`.

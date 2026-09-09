@@ -38,6 +38,7 @@ from __future__ import annotations
 # Autor: Dayvid Santana
 # Data: 01/09/2026
 # Objetivo: Gerar propósitos por arquivo antes de aplicar cabeçalhos confirmados.
+import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -264,13 +265,19 @@ class Orchestrator:
         return AgentRegistry().create(agent_id, self.provider)
 
     def _file_snapshot(self) -> dict[str, tuple[int, int]]:
+        # `os.walk(onerror=...)` (não `Path.rglob`) tolera um único diretório
+        # inacessível em qualquer lugar da árvore (link/junction quebrado,
+        # permissão negada) sem derrubar a varredura inteira com FileNotFoundError —
+        # e poda os diretórios excluídos antes de descer neles.
+        excluded = {".git", ".venv", "venv", "node_modules", "__pycache__"}
         snapshot: dict[str, tuple[int, int]] = {}
-        for path in self.root.rglob("*"):
-            if not path.is_file() or any(part in {".git", ".venv", "venv", "node_modules", "__pycache__"} for part in path.parts):
-                continue
-            try:
-                state = path.stat(); snapshot[str(path.relative_to(self.root))] = (state.st_mtime_ns, state.st_size)
-            except OSError: pass
+        for current_root, directory_names, file_names in os.walk(self.root, onerror=lambda _: None):
+            directory_names[:] = [name for name in directory_names if name not in excluded]
+            for file_name in file_names:
+                path = Path(current_root) / file_name
+                try:
+                    state = path.stat(); snapshot[str(path.relative_to(self.root))] = (state.st_mtime_ns, state.st_size)
+                except OSError: pass
         return snapshot
 
     def _changed_files(self, before: dict[str, tuple[int, int]]) -> list[str]:
@@ -302,8 +309,8 @@ class Orchestrator:
         )
         servico = HeaderService(self.config)
         conteudos: dict[str, str] = {}
-        for caminho in self.root.rglob("*"):
-            if not caminho.is_file() or not busca.allows(caminho) or not servico.supports(caminho):
+        for caminho in busca.walk_files():
+            if not busca.allows(caminho) or not servico.supports(caminho):
                 continue
             nome = caminho.relative_to(self.root).as_posix()
             try:

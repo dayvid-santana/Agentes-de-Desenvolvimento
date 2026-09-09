@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import fnmatch
+import os
+from collections.abc import Iterator
 from pathlib import Path
 
 
@@ -29,11 +31,29 @@ class FileSearchTool:
         text = path.relative_to(self.root).as_posix()
         return any(fnmatch.fnmatch(text, pattern) for pattern in self.includes)
 
+    def walk_files(self) -> Iterator[Path]:
+        """Percorre o projeto tolerando diretórios inacessíveis (links/junctions
+        quebrados, permissão negada) e podando diretórios excluídos antes de descer
+        neles. `Path.rglob` não faz nenhuma das duas coisas: um único caminho
+        problemático em qualquer lugar da árvore (ex.: um junction do `uv` apontando
+        para um diretório que não existe mais) derruba a varredura inteira com
+        `FileNotFoundError`, mesmo que esse caminho estivesse excluído.
+        """
+        for current_root, directory_names, file_names in os.walk(
+            self.root, onerror=lambda _: None
+        ):
+            current = Path(current_root)
+            directory_names[:] = [
+                name for name in directory_names if not self.is_excluded(current / name)
+            ]
+            for file_name in file_names:
+                yield current / file_name
+
     def find_names(self, terms: list[str], limit: int = 12) -> list[str]:
         lowered = [term.lower() for term in terms if len(term) > 2]
         found: list[str] = []
-        for path in self.root.rglob("*"):
-            if not path.is_file() or not self.allows(path):
+        for path in self.walk_files():
+            if not self.allows(path):
                 continue
             relative = path.relative_to(self.root).as_posix()
             if any(term in relative.lower() for term in lowered):
@@ -45,10 +65,12 @@ class FileSearchTool:
     def search_text(self, terms: list[str], limit: int = 12) -> list[str]:
         lowered = [term.lower() for term in terms if len(term) > 2]
         found: list[str] = []
-        for path in self.root.rglob("*"):
-            if not path.is_file() or not self.allows(path) or path.stat().st_size > 1_000_000:
+        for path in self.walk_files():
+            if not self.allows(path):
                 continue
             try:
+                if path.stat().st_size > 1_000_000:
+                    continue
                 content = path.read_text(encoding="utf-8").lower()
             except (OSError, UnicodeDecodeError):
                 continue
