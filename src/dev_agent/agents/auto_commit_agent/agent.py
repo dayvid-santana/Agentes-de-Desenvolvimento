@@ -9,9 +9,12 @@ from typing import Callable
 
 from pydantic import BaseModel, Field
 
+from dev_agent.agents.git_agent import GitAgent
 from dev_agent.config.models import DevAgentConfig
+from dev_agent.core.models import CommitSuggestion
 from dev_agent.errors import DevAgentError
 from dev_agent.logging import event
+from dev_agent.providers.base import LLMProvider
 from dev_agent.tools.git import GitTool
 from dev_agent.tools.tests import TestResult, TestTool
 
@@ -19,6 +22,7 @@ from dev_agent.tools.tests import TestResult, TestTool
 class AutoCommitResult(BaseModel):
     committed: bool = False
     reason: str
+    commits: list[str] = Field(default_factory=list)
     tests_executed: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
@@ -35,12 +39,15 @@ class AutoCommitAgent:
         *,
         git: GitTool | None = None,
         tests: TestTool | None = None,
+        provider: LLMProvider | None = None,
+        agenteCommit: GitAgent | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.root = root.resolve()
         self.config = config
         self.git = git or GitTool(self.root)
         self.tests = tests or TestTool(self.git.terminal, config.testing.command)
+        self.agenteCommit = agenteCommit or GitAgent(self.root, provider)
         self.clock = clock
 
     def commit_if_ready(self) -> AutoCommitResult:
@@ -74,13 +81,31 @@ class AutoCommitAgent:
         if self.git.porcelain_status() != status_before:
             return AutoCommitResult(reason="O estado do projeto mudou durante a validação; checkpoint adiado.", tests_executed=tests_executed)
 
+        plano = self.agenteCommit.commit_plan()
+        if self.git.porcelain_status() != status_before:
+            return AutoCommitResult(reason="O estado do projeto mudou ao gerar o plano de commit; checkpoint adiado.", tests_executed=tests_executed)
+        if not plano:
+            return AutoCommitResult(reason="Não foi possível gerar um plano de commit para as alterações locais.", tests_executed=tests_executed)
+
+        mensagens: list[str] = []
         try:
-            self.git.stage_all()
-            self.git.commit(self.config.autocommit.message)
+            for sugestao in plano:
+                self._executarSugestao(sugestao)
+                mensagens.append(sugestao.message)
         except DevAgentError as exc:
-            return AutoCommitResult(reason="Não foi possível criar o checkpoint.", tests_executed=tests_executed, warnings=[str(exc)])
-        event("agent.auto_commit.created", root=str(self.root))
-        return AutoCommitResult(committed=True, reason="Checkpoint local criado.", tests_executed=tests_executed)
+            return AutoCommitResult(
+                committed=bool(mensagens),
+                reason="O plano de commits foi executado parcialmente." if mensagens else "Não foi possível criar os commits planejados.",
+                commits=mensagens,
+                tests_executed=tests_executed,
+                warnings=[str(exc)],
+            )
+        event("agent.auto_commit.created", root=str(self.root), commits=len(mensagens))
+        return AutoCommitResult(committed=True, reason="Commits locais criados a partir do plano semântico.", commits=mensagens, tests_executed=tests_executed)
+
+    def _executarSugestao(self, sugestao: CommitSuggestion) -> None:
+        self.git.stage(sugestao.files)
+        self.git.commit(sugestao.message)
 
     def watch(self, stop_event: threading.Event | None = None) -> list[AutoCommitResult]:
         """Observa o estado Git por polling até interrupção cooperativa."""

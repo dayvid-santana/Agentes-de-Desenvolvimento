@@ -37,7 +37,7 @@ class CodeDocumentationAgent(SubAgent):
         header_skill = get_skill("code-header")
         response = self.provider.run(
             f"""Você é o CodeDocumentationAgent do DevAgent. Trabalhe somente em {packet.project_root}.
-Documente TODAS as classes, funções, métodos e declarações de tipos dos arquivos de código selecionados, sem
+Documente todas as classes, funções, métodos e declarações de tipos dos arquivos de código selecionados, sem
 exceção, incluindo elementos privados, helpers pequenos e funções triviais. Para Python, use docstrings; para
 JavaScript, TypeScript e JSX/TSX, use JSDoc; para as demais linguagens, use o formato idiomático de comentário
 de documentação. Para toda função ou método, documente obrigatoriamente cada parâmetro individualmente (nome,

@@ -8,6 +8,7 @@ from pathlib import Path
 from dev_agent.agents.auto_commit_agent import AutoCommitAgent, AutoCommitResult
 from dev_agent.config.models import DevAgentConfig
 from dev_agent.errors import DevAgentError
+from dev_agent.providers.base import LLMProvider
 
 
 class AutoCommitManager:
@@ -21,7 +22,7 @@ class AutoCommitManager:
         self._last_results: list[AutoCommitResult] = []
         self._last_error: str | None = None
 
-    def start(self, root: Path, config: DevAgentConfig) -> dict[str, object]:
+    def start(self, root: Path, config: DevAgentConfig, provider: LLMProvider | None = None) -> dict[str, object]:
         with self._lock:
             if self._thread and self._thread.is_alive():
                 raise DevAgentError("Já há um observador de checkpoints ativo neste processo.")
@@ -29,12 +30,12 @@ class AutoCommitManager:
             self._stop_event = threading.Event()
             self._last_results = []
             self._last_error = None
-            self._thread = threading.Thread(target=self._watch, args=(self._root, config, self._stop_event), daemon=True)
+            self._thread = threading.Thread(target=self._watch, args=(self._root, config, provider, self._stop_event), daemon=True)
             self._thread.start()
         return self.status()
 
-    def run_once(self, root: Path, config: DevAgentConfig) -> AutoCommitResult:
-        return AutoCommitAgent(root, config).commit_if_ready()
+    def run_once(self, root: Path, config: DevAgentConfig, provider: LLMProvider | None = None) -> AutoCommitResult:
+        return AutoCommitAgent(root, config, provider=provider).commit_if_ready()
 
     def stop(self) -> dict[str, object]:
         with self._lock:
@@ -56,9 +57,9 @@ class AutoCommitManager:
                 "last_error": self._last_error,
             }
 
-    def _watch(self, root: Path, config: DevAgentConfig, stop_event: threading.Event) -> None:
+    def _watch(self, root: Path, config: DevAgentConfig, provider: LLMProvider | None, stop_event: threading.Event) -> None:
         try:
-            results = AutoCommitAgent(root, config).watch(stop_event)
+            results = AutoCommitAgent(root, config, provider=provider).watch(stop_event)
             with self._lock:
                 self._last_results = results
         except DevAgentError as exc:

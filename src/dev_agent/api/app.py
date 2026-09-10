@@ -142,13 +142,13 @@ def autocommit_start(request: ProjectRequest):
     config = load_config(root)
     if not config.autocommit.enabled:
         raise DevAgentError("Defina autocommit.enabled: true em dev-agent.yaml antes de iniciar o serviço.")
-    return auto_commit_manager.start(root, config)
+    return auto_commit_manager.start(root, config, CodexProvider())
 
 @app.post("/autocommit/once")
 def autocommit_once(request: ProjectRequest):
     root = discover_project(request.cwd)
     config = load_config(root)
-    return auto_commit_manager.run_once(root, config).model_dump(mode="json")
+    return auto_commit_manager.run_once(root, config, CodexProvider()).model_dump(mode="json")
 
 @app.post("/autocommit/stop")
 def autocommit_stop(): return auto_commit_manager.stop()

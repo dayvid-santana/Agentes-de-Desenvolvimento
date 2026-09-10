@@ -20,6 +20,26 @@ class FakeTests:
         return ResultadoTeste(command="pytest", exit_code=self.exit_code, stdout="ok" if self.exit_code == 0 else "1 failed", stderr="")
 
 
+class FakeProvider:
+    def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+        assert not write_access
+        return "MENSAGEM: feat(servico): adiciona execução\nJUSTIFICATIVA: A implementação adiciona o serviço."
+
+
+class OrderedFakeProvider:
+    def __init__(self) -> None:
+        self.responses = iter(
+            [
+                "MENSAGEM: feat(servico): adiciona execução\nJUSTIFICATIVA: A implementação adiciona o serviço.",
+                "MENSAGEM: docs(readme): documenta execução\nJUSTIFICATIVA: A documentação descreve o novo serviço.",
+            ]
+        )
+
+    def run(self, prompt, project_root, *, write_access=False, timeout_seconds=600):
+        assert not write_access
+        return next(self.responses)
+
+
 def _repository(root: Path) -> Path:
     repository = root / "repo"
     repository.mkdir()
@@ -46,11 +66,12 @@ def test_auto_commit_creates_local_checkpoint_after_passing_tests(tmp_path: Path
     (repository / "servico.py").write_text("def executar(): return True\n", encoding="utf-8")
     tests = FakeTests()
 
-    result = AutoCommitAgent(repository, _config(repository), tests=tests).commit_if_ready()
+    result = AutoCommitAgent(repository, _config(repository), tests=tests, provider=FakeProvider()).commit_if_ready()
 
     assert result.committed and tests.calls == 1
     message = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=repository, check=True, capture_output=True, text=True, encoding="utf-8").stdout.strip()
-    assert message == "chore(checkpoint): salva alterações locais"
+    assert message == "feat(servico): adiciona execução"
+    assert result.commits == [message]
 
 
 def test_auto_commit_does_not_commit_when_tests_fail(tmp_path: Path):
@@ -62,6 +83,26 @@ def test_auto_commit_does_not_commit_when_tests_fail(tmp_path: Path):
     assert not result.committed and "testes falharam" in result.reason.lower()
     status = subprocess.run(["git", "status", "--short"], cwd=repository, check=True, capture_output=True, text=True).stdout
     assert "?? servico.py" in status
+
+
+def test_auto_commit_executes_each_group_from_the_git_agent_plan(tmp_path: Path):
+    repository = _repository(tmp_path)
+    (repository / "src").mkdir()
+    (repository / "src" / "servico.py").write_text("def executar(): return True\n", encoding="utf-8")
+    (repository / "README.md").write_text("# Serviço\n", encoding="utf-8")
+
+    result = AutoCommitAgent(repository, _config(repository), tests=FakeTests(), provider=OrderedFakeProvider()).commit_if_ready()
+
+    assert result.commits == ["feat(servico): adiciona execução", "docs(readme): documenta execução"]
+    messages = subprocess.run(
+        ["git", "log", "-2", "--format=%s"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout.splitlines()
+    assert messages == ["docs(readme): documenta execução", "feat(servico): adiciona execução"]
 
 
 def test_auto_commit_preserves_a_manually_staged_index(tmp_path: Path):

@@ -41,7 +41,6 @@ class AutoCommitSettings(BaseModel):
     inactivity_seconds: int = Field(default=300, ge=5, le=86_400)
     polling_seconds: int = Field(default=5, ge=1, le=300)
     run_tests: bool = True
-    message: str = Field(default="chore(checkpoint): salva alterações locais", min_length=1, max_length=200)
 
 
 class HeaderSettings(BaseModel):

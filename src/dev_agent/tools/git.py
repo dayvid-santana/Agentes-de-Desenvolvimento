@@ -75,6 +75,13 @@ class GitTool:
             detail = result.stderr.strip() or result.stdout.strip() or "erro desconhecido"
             raise ToolExecutionError(f"Não foi possível preparar o checkpoint: {detail}")
 
+    def stage(self, paths: list[str]) -> None:
+        """Prepara apenas um grupo coeso definido pelo plano de commit."""
+        result = self.terminal.run(["git", "add", "--", *paths])
+        if result.exit_code != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "erro desconhecido"
+            raise ToolExecutionError(f"Não foi possível preparar o grupo de commit: {detail}")
+
     def commit(self, message: str) -> None:
         result = self.terminal.run(["git", "commit", "-m", message])
         if result.exit_code != 0:
