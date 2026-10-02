@@ -105,6 +105,7 @@ def commands() -> None:
         "[cyan]cleanup[/cyan]  Remove um worktree finalizado com confirmação.\n"
         "[cyan]review[/cyan]   Revisa alterações; use --staged para o índice Git.\n"
         "[cyan]test[/cyan]     Executa os testes configurados.\n"
+        "[cyan]testar-aplicacao[/cyan] Explora a aplicação web com Playwright e salva relatório de cobertura.\n"
         "[cyan]debug[/cyan]    Investiga um problema no projeto.\n"
         "[cyan]commit[/cyan]   Sugere um plano de commit.\n"
         "[cyan]autocommit[/cyan] Observa o projeto e cria checkpoints locais seguros.\n"
@@ -117,6 +118,7 @@ def commands() -> None:
         "dev-agent headers --plan\n"
         "dev-agent patterns \"Avalie a camada de providers\"\n"
         "dev-agent model \"Modele o fluxo de aprovação de faturas\"\n"
+        "dev-agent testar-aplicacao \"Percorra o cadastro e a recuperação de senha\"\n"
         "dev-agent run <id-do-plano> --confirm\n"
         "dev-agent review --staged\n\n"
         "Use [cyan]dev-agent <comando> --help[/cyan] para os detalhes de cada comando."
@@ -270,6 +272,11 @@ def cleanup(job_id: str, confirm: bool = typer.Option(False, "--confirm", help="
 def review(staged: bool = typer.Option(False, "--staged")) -> None: print(Pretty(_api("POST", "/agent/review", _project_payload(staged=staged))))
 @app.command()
 def test() -> None: print(Pretty(_api("POST", "/agent/test", _project_payload())))
+@app.command("testar-aplicacao")
+def testarAplicacao(objective: str = typer.Argument("Explorar funcionalidades acessíveis da aplicação web")) -> None:
+    """Explora páginas e controles acessíveis da aplicação web com Playwright."""
+    payload = _project_payload(agent="explorador_aplicacao", objective=objective)
+    print(Pretty(_api("POST", "/assistant/invocations", payload)))
 @app.command()
 def debug(message: str = typer.Argument("Investigar o estado atual do projeto", help="Erro, comportamento ou fluxo a investigar.")) -> None: print(Pretty(_api("POST", "/agent/debug", _project_payload(objective=message))))
 @app.command()

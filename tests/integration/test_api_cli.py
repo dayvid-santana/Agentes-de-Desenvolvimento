@@ -105,7 +105,7 @@ def test_assistant_backend_lists_direct_agents():
     response = client.get("/assistant/agents")
 
     assert response.status_code == 200
-    assert {"ask", "code_modeling", "security", "design_patterns", "task"} <= {item["name"] for item in response.json()}
+    assert {"ask", "code_modeling", "security", "design_patterns", "task", "explorador_aplicacao"} <= {item["name"] for item in response.json()}
 
 
 def test_headers_endpoint_plans_and_repairs_only_eligible_missing_headers(tmp_path: Path, monkeypatch):
@@ -241,6 +241,7 @@ def test_commands_lists_the_main_cli_commands():
     assert "headers" in result.output
     assert "patterns" in result.output
     assert "model" in result.output
+    assert "testar-aplicacao" in result.output
     assert "autocommit" in result.output
     assert "review --staged" in result.output
 
@@ -348,6 +349,23 @@ def test_model_command_invokes_code_modeling_agent(monkeypatch):
     assert recorded["method"] == "POST"
     assert recorded["endpoint"] == "/assistant/invocations"
     assert recorded["payload"]["agent"] == "code_modeling"
+
+
+def test_application_testing_command_invokes_explorer(monkeypatch):
+    recorded: dict[str, object] = {}
+
+    def api(method, endpoint, payload=None):
+        recorded.update(method=method, endpoint=endpoint, payload=payload)
+        return {"results": []}
+
+    monkeypatch.setattr("dev_agent.cli.app._api", api)
+    result = runner.invoke(cli_app, ["testar-aplicacao", "Testar recuperacao de senha"])
+
+    assert result.exit_code == 0
+    assert recorded["method"] == "POST"
+    assert recorded["endpoint"] == "/assistant/invocations"
+    assert recorded["payload"]["agent"] == "explorador_aplicacao"
+    assert recorded["payload"]["objective"] == "Testar recuperacao de senha"
 
 
 def test_document_project_creates_a_project_documentation_plan(monkeypatch):

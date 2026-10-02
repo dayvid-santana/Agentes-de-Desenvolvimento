@@ -63,6 +63,53 @@ class ContextPacket(BaseModel):
     file_contents: dict[str, str] = Field(default_factory=dict)
 
 
+class ItemCoberturaAplicacao(BaseModel):
+    identificador: str
+    tipo: Literal["pagina", "controle", "jornada", "viewport", "teclado"]
+    nome: str
+    url: str | None = None
+    status: Literal["aprovado", "falhou", "inconclusivo", "ignorado", "bloqueado"]
+    expectativa: str | None = None
+    fonteExpectativa: str | None = None
+    observacao: str | None = None
+    passos: list[str] = Field(default_factory=list)
+
+
+class AchadoAplicacao(BaseModel):
+    severidade: Literal["critica", "alta", "media", "baixa", "informativa"]
+    categoria: Literal["navegacao", "interacao", "console", "rede", "acessibilidade", "assertiva", "ambiente"]
+    titulo: str
+    url: str | None = None
+    esperado: str | None = None
+    observado: str | None = None
+    passosReproducao: list[str] = Field(default_factory=list)
+    confianca: Literal["alta", "media", "baixa"] = "media"
+    artefato: str | None = None
+
+
+class RelatorioExploracaoAplicacao(BaseModel):
+    identificadorExecucao: str
+    objetivo: str
+    status: Literal["concluido", "parcial", "bloqueado", "cancelado"]
+    urlBase: str | None = None
+    paginasDescobertas: int = 0
+    paginasVisitadas: int = 0
+    controlesDescobertos: int = 0
+    controlesExercitados: int = 0
+    controlesIgnorados: int = 0
+    assertivasConfiguradas: int = 0
+    assertivasAprovadas: int = 0
+    percentualExecucao: float | None = None
+    percentualAssertivo: float | None = None
+    fontesExpectativa: list[str] = Field(default_factory=list)
+    itens: list[ItemCoberturaAplicacao] = Field(default_factory=list)
+    achados: list[AchadoAplicacao] = Field(default_factory=list)
+    artefatos: list[str] = Field(default_factory=list)
+    limitacoes: list[str] = Field(default_factory=list)
+    inicio: datetime
+    fim: datetime | None = None
+
+
 class SubAgentResult(BaseModel):
     agent: str
     summary: str
@@ -70,6 +117,7 @@ class SubAgentResult(BaseModel):
     files_changed: list[str] = Field(default_factory=list)
     tests_executed: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    relatorioAplicacao: RelatorioExploracaoAplicacao | None = None
     architecture_decision_required: bool = False
     next_actions: list[str] = Field(default_factory=list)
 

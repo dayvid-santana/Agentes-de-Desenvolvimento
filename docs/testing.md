@@ -18,7 +18,7 @@ docker compose --profile test run --rm tests
 
 ## Escopo atual
 
-Na coleta atual, a suíte contém 84 testes em 13 arquivos. Ela cobre:
+A suíte cobre:
 
 - configuração e descoberta do projeto;
 - isolamento de caminhos, busca e seleção de contexto;
@@ -26,6 +26,7 @@ Na coleta atual, a suíte contém 84 testes em 13 arquivos. Ela cobre:
 - cabeçalhos;
 - catálogo/registry e adaptador legado;
 - agentes, gateway externo e contratos de resultado;
+- configuração, allowlist e relatório do explorador Playwright com fakes, sem navegador nem aplicação externa;
 - orquestrador, Git, state machine, checkpoints, jobs, cancelamento e retomada;
 - rotas principais da API e a CLI com `TestClient`/`CliRunner`.
 

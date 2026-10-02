@@ -35,6 +35,24 @@ context:
 testing:
   command: pytest
 
+testeAplicacao:
+  urlBase: null
+  comandoInicial: []
+  origensPermitidas: []
+  arquivoEstadoSessao: null
+  capturarTelas: false
+  permitirMutacoes: false
+  ambienteDeTesteConfirmado: false
+  comandoReset: []
+  paginasMaximas: 24
+  acoesMaximas: 120
+  tempoLimiteSegundos: 180
+  inicializacaoLimiteSegundos: 30
+  limiteAcaoMs: 4000
+  pastaArtefatos: .dev-agent/usabilidade
+  motor: chromium
+  jornadas: []
+
 git:
   conventional_commits: true
   review_staged: true
@@ -65,6 +83,7 @@ security:
 | `documentation` | `priority` | É preservado na configuração, mas a seleção de contexto atual usa ordem própria de `AGENTS.md`, caminhos, mudanças e documentação; não há evidência de que esse campo altere a ordenação. |
 | `context` | `include`, `exclude`, `contextosAgentes`, `max_files`, `max_file_chars`, `max_total_chars`, `dependency_depth` | Controla busca e tamanho do pacote. `contextosAgentes` limita os Markdown especializados que `AGENTS.md` pode referenciar para instruções de IA. `max_files`: 1–100; `max_file_chars`: mínimo 1.000; `max_total_chars`: mínimo 5.000; profundidade: 0–5. |
 | `testing` | `command` | Comando passado ao `TestTool`; ele é separado com `shlex.split` e executado sem shell. |
+| `testeAplicacao` | URL, comandos, origens, jornadas, limites e evidências | Configura `dev-agent testar-aplicacao`. Playwright é opcional; detalhes, validações e limites estão em [exploração de aplicações web](application-testing.md). |
 | `git` | `conventional_commits`, `review_staged`, `suggest_commit_split` | Declarados e têm os padrões acima. O plano de commit atual sempre aplica a heurística fixa de código/testes/docs; não há evidência de leitura desses três flags nesse fluxo. |
 | `autocommit` | `enabled`, `inactivity_seconds`, `polling_seconds`, `run_tests` | Serviço local e opt-in acionado por `dev-agent autocommit`. Após o período sem alteração Git, ele executa os testes quando configurado e reaproveita o plano semântico do `GitAgent`: cada grupo sugerido (código, testes ou documentação) é criado como um commit local separado. Ele bloqueia caminhos sensíveis e operações de merge/rebase/cherry-pick/revert; nunca faz `push`. `inactivity_seconds`: 5–86.400; `polling_seconds`: 1–300. |
 | `headers` | `enabled`, `author`, `date_format`, `history` | `HeaderService` só acrescenta cabeçalho a arquivos suportados sem cabeçalho. `dev-agent headers --check` lista os candidatos do escopo de contexto; `--plan` propõe um propósito específico por arquivo; `--apply --confirm` insere ou corrige cabeçalhos genéricos criados pelo comando anterior. `history` existe no modelo, mas o serviço atual não usa esse campo. |

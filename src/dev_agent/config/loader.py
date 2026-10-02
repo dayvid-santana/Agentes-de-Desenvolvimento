@@ -62,6 +62,25 @@ context:
 testing:
   command: pytest
 
+testeAplicacao:
+  # Aponte para a aplicação web local; comandoInicial é opcional e não usa shell.
+  urlBase: null
+  comandoInicial: []
+  origensPermitidas: []
+  arquivoEstadoSessao: null
+  capturarTelas: false
+  permitirMutacoes: false
+  ambienteDeTesteConfirmado: false
+  comandoReset: []
+  paginasMaximas: 24
+  acoesMaximas: 120
+  tempoLimiteSegundos: 180
+  inicializacaoLimiteSegundos: 30
+  limiteAcaoMs: 4000
+  pastaArtefatos: .dev-agent/usabilidade
+  motor: chromium
+  jornadas: []
+
 git:
   conventional_commits: true
   review_staged: true

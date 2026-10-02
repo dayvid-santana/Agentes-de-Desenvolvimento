@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "pytest-asyncio>=0.23,<1"]
+browser = ["playwright>=1.48,<2"]
 
 [project.scripts]
 dev-agent = "dev_agent.cli.app:main"

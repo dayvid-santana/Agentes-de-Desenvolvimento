@@ -33,6 +33,13 @@ python -m pip install -e ".[dev]"
 pytest
 ```
 
+Para explorar aplicações web com Playwright, instale o extra opcional e o Chromium:
+
+```powershell
+python -m pip install -e ".[browser]"
+python -m playwright install chromium
+```
+
 O executável `dev-agent` fica disponível enquanto o ambiente virtual estiver ativo. Para instalar em um ambiente isolado global, o README apenas prevê `pipx install .`; a configuração do `pipx` não é automatizada pelo projeto.
 
 Para usar o DevAgent em outro repositório, vá até ele e crie a configuração inicial:
@@ -83,6 +90,7 @@ Uma solicitação com termos estruturais, como autenticação, migração de ban
 | `model <objetivo>` | Produz uma modelagem de código autocontida para copiar, revisar e evoluir. |
 | `job`, `cancel`, `resume`, `cleanup` | Consultam e controlam jobs assíncronos. |
 | `review [--staged]`, `test`, `debug <mensagem>` | Revisam diff, executam testes configurados ou investigam uma falha. |
+| `testar-aplicacao [objetivo]` | Explora páginas e controles web com Playwright; requer configuração da origem e do ambiente de teste. |
 | `commit` | Sugere agrupamentos de Conventional Commits; não cria commit nem faz push. |
 | `autocommit [--once|--stop]` | Inicia, testa ou interrompe checkpoints locais opt-in; nunca faz push. |
 | `agents [list|show|graph|doctor]` | Consulta o catálogo declarativo. |
@@ -113,6 +121,7 @@ O `Orchestrator` serializa as fases que podem escrever por meio de um lock de pr
 
 - [Visão geral e estrutura de diretórios](docs/overview.md)
 - [Configuração por projeto](docs/configuration.md)
+- [Exploração e testes de aplicações web](docs/application-testing.md)
 - [Orquestração, jobs e retomada](docs/orchestration.md)
 - [Inventário e registro de agentes](docs/agent-inventory.md)
 - [API local e integração com assistentes](docs/assistant-backend.md)

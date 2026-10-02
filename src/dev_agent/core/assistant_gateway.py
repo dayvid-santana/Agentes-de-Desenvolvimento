@@ -57,7 +57,7 @@ class AssistantGateway:
         "refactor": RefactorAgent,
     }
     _DIRECT_AGENTS = frozenset({
-        "ask", "context", "review", "test", "debug", "task", "git", "documentation", "bug_reproduction", *_SPECIALISTS,
+        "ask", "context", "review", "test", "explorador_aplicacao", "debug", "task", "git", "documentation", "bug_reproduction", *_SPECIALISTS,
     })
 
     def __init__(self, orchestrator) -> None:
@@ -120,6 +120,8 @@ class AssistantGateway:
             return [self.orchestrator.review(staged)], []
         if agent == "test":
             return [self.orchestrator.test()], []
+        if agent == "explorador_aplicacao":
+            return [self.orchestrator.explorarAplicacao(objective)], []
         if agent == "debug":
             return [self.orchestrator.debug(objective)], []
 

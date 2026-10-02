@@ -137,6 +137,19 @@ agents:
     legacy: false
     status: active
 
+  - id: explorador_aplicacao
+    name: explorador_aplicacao
+    aliases: [app-test]
+    module: dev_agent.agents.explorador_aplicacao.agent
+    class_name: ExploradorAplicacaoAgent
+    purpose: Explora funcionalidades visíveis da aplicação web com Playwright e registra cobertura, falhas e evidências.
+    mode: execute
+    kind: subagent
+    tools: [playwright, filesystem, terminal]
+    invocation: dev-agent testar-aplicacao [objetivo]
+    legacy: false
+    status: active
+
   - id: review
     name: review
     module: dev_agent.agents.review_agent.agent

@@ -2,13 +2,13 @@
 
 `agents/catalog.yaml` é a fonte única de verdade. `AgentRegistry` valida o YAML, recusa IDs duplicados, resolve ID/nome/alias sem diferenciar maiúsculas e minúsculas e verifica imports/atributos em `doctor`. Não mantenha uma lista paralela no orquestrador ou na CLI.
 
-O catálogo atual contém 27 componentes.
+O catálogo atual contém 28 componentes.
 
 | Grupo | IDs e propósito |
 |---|---|
 | Contexto e coordenação | `context` seleciona contexto; `requirements` define escopo; `architecture_guard` identifica pedido estrutural. |
 | Escrita de tarefa | `implementation` altera a tarefa aprovada; `documentation_writer` atualiza documentação necessária; `project_documentation` documenta o projeto; `code_documentation` documenta classes, funções, métodos e tipos do código selecionado; `test_author` cria/atualiza testes relacionados. |
-| Teste e diagnóstico | `test` executa a suíte; `bug_reproduction` propõe reprodução verificável para relatos de falha; `review` examina o diff; `debug` diagnostica usando testes, diff e contexto. |
+| Teste e diagnóstico | `test` executa a suíte; `explorador_aplicacao` navega pela aplicação web com Playwright e registra cobertura; `bug_reproduction` propõe reprodução verificável para relatos de falha; `review` examina o diff; `debug` diagnostica usando testes, diff e contexto. |
 | Análises especializadas | `code_modeling`, `security`, `database`, `api_contract`, `quality`, `dependency`, `design_patterns`, `performance`, `frontend`, `observability`, `release` e `refactor` analisam o contexto selecionado em modo leitura. |
 | Documentação e Git | `documentation` avalia impactos de documentação; `git` sugere commits sem criá-los; `auto_commit` cria checkpoints locais opt-in depois de inatividade e testes aprovados. |
 

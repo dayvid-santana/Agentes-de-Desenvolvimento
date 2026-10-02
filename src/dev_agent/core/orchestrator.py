@@ -62,6 +62,7 @@ from dev_agent.tools.git import GitTool
 from dev_agent.tools.search import FileSearchTool
 from dev_agent.tools.terminal import TerminalTool
 from dev_agent.tools.tests import TestTool
+from dev_agent.tools.application_exploration import FerramentaExploracaoAplicacao
 from dev_agent.logging import event
 
 class Orchestrator:
@@ -223,6 +224,19 @@ class Orchestrator:
     def test(self) -> SubAgentResult:
         packet, _ = self.context("Executar testes do projeto")
         return TestAgent(TestTool(self._terminal(), self.config.testing.command)).run(packet)
+
+    def explorarAplicacao(self, objective: str = "Explorar funcionalidades acessíveis da aplicação web") -> SubAgentResult:
+        packet = ContextPacket(
+            project_name=self.config.project.name,
+            project_root=self.root,
+            objective=objective,
+        )
+        ferramenta = FerramentaExploracaoAplicacao(
+            self.root,
+            self.config.testeAplicacao,
+            cancelamento=getattr(self.provider, "cancel_event", None),
+        )
+        return AgentRegistry().create("explorador_aplicacao", ferramenta).run(packet)
 
     def debug(self, objective: str) -> SubAgentResult:
         packet, _ = self.context(objective)

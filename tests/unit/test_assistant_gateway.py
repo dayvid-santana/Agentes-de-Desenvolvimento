@@ -41,11 +41,14 @@ class FakeOrchestrator:
     def commit_plan(self):
         return []
 
+    def explorarAplicacao(self, objective: str):
+        return SubAgentResult(agent="explorador_aplicacao", summary=f"Exploração: {objective}")
+
 
 def test_gateway_exposes_only_direct_agents():
     names = {item.name for item in AssistantGateway.available_agents()}
 
-    assert {"ask", "code_modeling", "security", "design_patterns", "task", "review"} <= names
+    assert {"ask", "code_modeling", "security", "design_patterns", "task", "review", "explorador_aplicacao"} <= names
     assert "implementation" not in names
 
 
@@ -70,6 +73,16 @@ def test_gateway_runs_code_modeling_agent():
 
     assert results[0].agent == "code_modeling"
     assert results[0].summary == "Análise recebida"
+    assert suggestions == []
+
+
+def test_gateway_runs_application_explorer():
+    results, suggestions = AssistantGateway(FakeOrchestrator()).invoke(
+        "explorador_aplicacao", "Testar fluxo de login"
+    )
+
+    assert results[0].agent == "explorador_aplicacao"
+    assert results[0].summary.endswith("Testar fluxo de login")
     assert suggestions == []
 
 
